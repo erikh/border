@@ -1,10 +1,13 @@
 package config
 
 import (
+	"encoding/json"
 	"errors"
 	"io"
 	"net"
 	"os"
+
+	"gopkg.in/yaml.v2"
 )
 
 var (
@@ -45,19 +48,23 @@ type Record struct {
 }
 
 func LoadJSON(data []byte) (Config, error) {
-	return Config{}, errors.New("unimplemented")
+	var c Config
+	err := json.Unmarshal(data, &c)
+	return c, err
 }
 
 func LoadYAML(data []byte) (Config, error) {
-	return Config{}, errors.New("unimplemented")
+	var c Config
+	err := yaml.Unmarshal(data, &c)
+	return c, err
 }
 
 func (c Config) SaveToJSON() ([]byte, error) {
-	return nil, errors.New("unimplemented")
+	return json.MarshalIndent(c, "", "  ")
 }
 
 func (c Config) SaveToYAML() ([]byte, error) {
-	return nil, errors.New("unimplemented")
+	return yaml.Marshal(c)
 }
 
 func ToDisk(filename string, dumperFunc func() ([]byte, error)) error {
