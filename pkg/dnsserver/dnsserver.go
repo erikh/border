@@ -52,8 +52,13 @@ func (ds *DNSServer) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 				answers = append(answers, rec)
 			}
 		default:
-			// for _, rec := range zone.Records {
-			// }
+			for _, rec := range zone.Records {
+				if rec.Name == r.Question[0].Name {
+					for _, rec := range rec.Value.Convert().([]dns.RR) {
+						answers = append(answers, rec)
+					}
+				}
+			}
 		}
 	}
 
