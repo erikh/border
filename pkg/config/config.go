@@ -7,7 +7,7 @@ import (
 	"net"
 	"os"
 
-	"gopkg.in/yaml.v2"
+	"github.com/ghodss/yaml"
 )
 
 var (
