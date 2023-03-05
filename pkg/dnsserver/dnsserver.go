@@ -39,7 +39,9 @@ func (ds *DNSServer) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 	answers := []dns.RR{}
 
 	if len(r.Question) != 0 {
-		// NOTE: according to the docs for Questions, practically, only the first question matters
+		// NOTE: according to the docs for Questions, practically, only the first
+		// question matters. DNS the specced protocol supports multiple questions,
+		// but most servers only honor the first one.
 		zone := ds.findZone(r.Question[0])
 		switch r.Question[0].Qtype {
 		// SOA and NS records are special in our implementation; they always
