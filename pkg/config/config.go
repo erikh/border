@@ -7,6 +7,7 @@ import (
 	"net"
 	"os"
 
+	"github.com/erikh/border/pkg/dnsconfig"
 	"github.com/ghodss/yaml"
 )
 
@@ -28,23 +29,14 @@ type Peer struct {
 }
 
 type Zone struct {
-	SOA     SOA      `json:"soa"`
-	Records []Record `json:"records"`
-}
-
-// FIXME can this be stored with miekg/dns types?
-type SOA struct {
-	Domain string `json:"domain"`
-	Admin  string `json:"admin"`
-	// FIXME look up the different types of expiry TTLs, I forget now
-	TTL    uint `json:"ttl"`
-	Serial uint `json:"serial"`
+	SOA     dnsconfig.SOA `json:"soa"`
+	Records []Record      `json:"records"`
 }
 
 type Record struct {
 	Name string `json:"name"`
+	// FIXME create a dnsconfig struct collection to encapsulate all these types
 	Type string `json:"type"`
-	// FIXME additional data goes here, but needs to be an interface of something, dunno what yet.
 }
 
 func LoadJSON(data []byte) (Config, error) {
