@@ -30,13 +30,13 @@ type Peer struct {
 
 type Zone struct {
 	SOA     dnsconfig.SOA `json:"soa"`
+	NS      dnsconfig.NS  `json:"ns"`
 	Records []Record      `json:"records"`
 }
 
 type Record struct {
-	Name string `json:"name"`
-	// FIXME create a dnsconfig struct collection to encapsulate all these types
-	Type string `json:"type"`
+	Name  string           `json:"name"`
+	Value dnsconfig.Record `json:"value"`
 }
 
 func LoadJSON(data []byte) (Config, error) {
