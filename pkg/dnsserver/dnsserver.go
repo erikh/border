@@ -27,8 +27,8 @@ func (ds *DNSServer) Start(listenSpec string) error {
 		done <- nil
 	}
 
-	ds.udpServer = &dns.Server{Addr: listenSpec, Net: "udp", Handler: ds, NotifyStartedFunc: startFunc}
-	ds.tcpServer = &dns.Server{Addr: listenSpec, Net: "tcp", Handler: ds, NotifyStartedFunc: startFunc, ReusePort: true}
+	ds.udpServer = &dns.Server{Addr: listenSpec, Net: "udp", Handler: ds, NotifyStartedFunc: startFunc, ReusePort: true}
+	ds.tcpServer = &dns.Server{Addr: listenSpec, Net: "tcp", Handler: ds, NotifyStartedFunc: startFunc}
 
 	go func() {
 		switch err := ds.udpServer.ListenAndServe(); err {
