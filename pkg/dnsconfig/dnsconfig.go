@@ -16,7 +16,7 @@ import (
 // kind of dead weight.
 type Record interface {
 	Match(uint16, string) bool
-	Convert() any
+	Convert() []dns.RR
 }
 
 type SOA struct {
@@ -33,8 +33,14 @@ func (soa *SOA) Match(t uint16, s string) bool {
 	return t == dns.TypeSOA && s == soa.Domain
 }
 
-func (soa *SOA) Convert() any {
-	return &dns.SOA{
+func (soa *SOA) Convert() []dns.RR {
+	return []dns.RR{&dns.SOA{
+		Hdr: dns.RR_Header{
+			Name:   soa.Domain,
+			Rrtype: dns.TypeSOA,
+			Class:  dns.ClassINET,
+			Ttl:    soa.MinTTL,
+		},
 		Ns:      soa.Domain,
 		Mbox:    soa.Admin,
 		Serial:  soa.Serial,
@@ -42,24 +48,31 @@ func (soa *SOA) Convert() any {
 		Retry:   soa.Retry,
 		Expire:  soa.Expire,
 		Minttl:  soa.MinTTL,
-	}
+	}}
 }
 
 type A struct {
 	Name      string   `json:"name"`
 	Addresses []net.IP `json:"addresses"`
+	TTL       uint32
 }
 
 func (a *A) Match(t uint16, s string) bool {
 	return t == dns.TypeA && s == a.Name
 }
 
-func (a *A) Convert() any {
-	ret := []*dns.A{}
+func (a *A) Convert() []dns.RR {
+	ret := []dns.RR{}
 	for _, rec := range a.Addresses {
-		ret = append(ret, &dns.A{
+		ret = append(ret, dns.RR(&dns.A{
+			Hdr: dns.RR_Header{
+				Name:   a.Name,
+				Rrtype: dns.TypeA,
+				Class:  dns.ClassINET,
+				Ttl:    a.TTL,
+			},
 			A: rec,
-		})
+		}))
 	}
 
 	return ret
@@ -67,18 +80,25 @@ func (a *A) Convert() any {
 
 type NS struct {
 	Servers []string `json:"servers"`
+	TTL     uint32
 }
 
 func (ns *NS) Match(t uint16, s string) bool {
 	return t == dns.TypeNS
 }
 
-func (ns *NS) Convert() any {
-	ret := []*dns.NS{}
+func (ns *NS) Convert() []dns.RR {
+	ret := []dns.RR{}
 	for _, rec := range ns.Servers {
-		ret = append(ret, &dns.NS{
+		ret = append(ret, dns.RR(&dns.NS{
+			Hdr: dns.RR_Header{
+				Name:   rec,
+				Rrtype: dns.TypeNS,
+				Class:  dns.ClassINET,
+				Ttl:    ns.TTL,
+			},
 			Ns: rec,
-		})
+		}))
 	}
 
 	return ret

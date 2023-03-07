@@ -1,6 +1,7 @@
 package dnsserver
 
 import (
+	"errors"
 	"strings"
 	"sync"
 
@@ -11,10 +12,64 @@ import (
 type DNSServer struct {
 	Zones        map[string]config.Zone
 	rebuildMutex sync.RWMutex
+	udpServer    *dns.Server
+	tcpServer    *dns.Server
 }
 
-func (ds *DNSServer) Listen(listenSpec string) error {
-	return dns.ListenAndServe(listenSpec, "udp", ds)
+// Start returns after the servers have started, and launches a UDP and TCP
+// server in the background on the network specification.
+func (ds *DNSServer) Start(listenSpec string) error {
+	done := make(chan error, 2)
+	startFunc := func() {
+		done <- nil
+	}
+
+	ds.udpServer = &dns.Server{Addr: listenSpec, Net: "udp", Handler: ds, NotifyStartedFunc: startFunc}
+	ds.tcpServer = &dns.Server{Addr: listenSpec, Net: "tcp", Handler: ds, NotifyStartedFunc: startFunc, ReusePort: true}
+
+	go func() {
+		switch err := ds.udpServer.ListenAndServe(); err {
+		case nil:
+		default:
+			done <- err
+		}
+	}()
+
+	go func() {
+		switch err := ds.tcpServer.ListenAndServe(); err {
+		case nil:
+		default:
+			done <- err
+		}
+	}()
+
+	// FIXME might want to do something with contexts that's useful here to avoid
+	// deadlocks, which could happen on port collisions, etc.
+	for i := 0; i < 2; i++ {
+		if err := <-done; err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// Shutdown the server. Returns errors on unstarted servers or failed
+// shutdowns.
+func (ds *DNSServer) Shutdown() error {
+	if ds.udpServer == nil || ds.tcpServer == nil {
+		return errors.New("cannot shutdown server; never started")
+	}
+
+	if err := ds.udpServer.Shutdown(); err != nil {
+		return errors.Join(err, errors.New("unable to shutdown UDP server"))
+	}
+
+	if err := ds.tcpServer.Shutdown(); err != nil {
+		return errors.Join(err, errors.New("unable to shutdown TCP server"))
+	}
+
+	return nil
 }
 
 func (ds *DNSServer) findZone(name string) *config.Zone {
@@ -23,7 +78,7 @@ func (ds *DNSServer) findZone(name string) *config.Zone {
 	// right, the longest match will be found first, finding the most local zone.
 	// This is probably broken in some subtle way, but YOLO.
 	for i := len(names); i > 0; i-- {
-		potentialZone := strings.Join(names[len(names)-i:len(names)], ".")
+		potentialZone := strings.Join(names[len(names)-i:len(names)], ".") + "."
 		if zone, ok := ds.Zones[potentialZone]; ok {
 			return &zone
 		}
@@ -44,21 +99,24 @@ func (ds *DNSServer) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 		// but most servers only honor the first one. So we are going to avoid
 		// caring about any others and save ourselves some trouble.
 		zone := ds.findZone(r.Question[0].Name)
-		switch r.Question[0].Qtype {
-		// SOA and NS records are special in our implementation; they always
-		// exist just for the zone, and in a specific format. No need for a
-		// Match() call here.
-		case dns.TypeSOA:
-			answers = append(answers, zone.SOA.Convert().(dns.RR))
-		case dns.TypeNS:
-			for _, rec := range zone.NS.Convert().([]dns.RR) {
-				answers = append(answers, rec)
-			}
-		default:
-			for _, rec := range zone.Records {
-				if rec.Name == r.Question[0].Name {
-					for _, rec := range rec.Value.Convert().([]dns.RR) {
-						answers = append(answers, rec)
+
+		if zone != nil {
+			switch r.Question[0].Qtype {
+			// SOA and NS are special because they are special records.
+			case dns.TypeSOA:
+				answers = zone.SOA.Convert()
+			case dns.TypeNS:
+				rr := []dns.RR{}
+				for _, ns := range zone.NS.Convert() {
+					rr = append(rr, ns)
+				}
+				answers = rr
+			default:
+				for _, rec := range zone.Records {
+					if rec.Name == r.Question[0].Name {
+						for _, rec := range rec.Value.Convert() {
+							answers = append(answers, rec)
+						}
 					}
 				}
 			}
