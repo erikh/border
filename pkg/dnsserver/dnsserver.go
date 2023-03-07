@@ -17,7 +17,12 @@ type DNSServer struct {
 // Start returns after the servers have started, and launches a UDP and TCP
 // server in the background on the network specification.
 func (ds *DNSServer) Start(listenSpec string) error {
-	done := make(chan error, 2)
+	// the only reason this is 4 is because if the goroutine listens terminate
+	// prematurely after starting, they may yield an error, which would deadlock
+	// the channel, so fill the buffer pointlessly, but at least nothing locks
+	// up. Shutdown() will catch the real error. There's probably a good argument
+	// for just returning the channel here instead.
+	done := make(chan error, 4)
 	startFunc := func() {
 		done <- nil
 	}
