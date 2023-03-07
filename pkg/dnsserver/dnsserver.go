@@ -106,11 +106,9 @@ func (ds *DNSServer) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 			case dns.TypeSOA:
 				answers = zone.SOA.Convert()
 			case dns.TypeNS:
-				rr := []dns.RR{}
 				for _, ns := range zone.NS.Convert() {
-					rr = append(rr, ns)
+					answers = append(answers, ns)
 				}
-				answers = rr
 			default:
 				for _, rec := range zone.Records {
 					if rec.Name == r.Question[0].Name {
