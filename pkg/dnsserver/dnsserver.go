@@ -22,7 +22,7 @@ func (ds *DNSServer) findZone(question dns.Question) *config.Zone {
 	// perform a greedy reverse search of the FQDN. If this code is working
 	// right, the longest match will be found first, finding the most local zone.
 	// This is probably broken in some subtle way, but YOLO.
-	for i := len(names); i >= 1; i-- {
+	for i := len(names); i > 0; i-- {
 		potentialZone := strings.Join(names[len(names)-i-1:len(names)-1], ".")
 		if zone, ok := ds.Zones[potentialZone]; ok {
 			return &zone
