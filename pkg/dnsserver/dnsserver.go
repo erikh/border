@@ -17,13 +17,13 @@ func (ds *DNSServer) Listen(listenSpec string) error {
 	return dns.ListenAndServe(listenSpec, "udp", ds)
 }
 
-func (ds *DNSServer) findZone(question dns.Question) *config.Zone {
-	names := dns.SplitDomainName(question.Name)
+func (ds *DNSServer) findZone(name string) *config.Zone {
+	names := dns.SplitDomainName(name)
 	// perform a greedy reverse search of the FQDN. If this code is working
 	// right, the longest match will be found first, finding the most local zone.
 	// This is probably broken in some subtle way, but YOLO.
 	for i := len(names); i > 0; i-- {
-		potentialZone := strings.Join(names[len(names)-i-1:len(names)-1], ".")
+		potentialZone := strings.Join(names[len(names)-i:len(names)], ".")
 		if zone, ok := ds.Zones[potentialZone]; ok {
 			return &zone
 		}
@@ -43,7 +43,7 @@ func (ds *DNSServer) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 		// question matters. DNS the specced protocol supports multiple questions,
 		// but most servers only honor the first one. So we are going to avoid
 		// caring about any others and save ourselves some trouble.
-		zone := ds.findZone(r.Question[0])
+		zone := ds.findZone(r.Question[0].Name)
 		switch r.Question[0].Qtype {
 		// SOA and NS records are special in our implementation; they always
 		// exist just for the zone, and in a specific format. No need for a
