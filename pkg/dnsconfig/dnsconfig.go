@@ -46,7 +46,7 @@ func (soa *SOA) Convert() []dns.RR {
 type A struct {
 	Name      string   `json:"name"`
 	Addresses []net.IP `json:"addresses"`
-	TTL       uint32
+	TTL       uint32   `json:"ttl"`
 }
 
 func (a *A) Convert() []dns.RR {
@@ -68,7 +68,7 @@ func (a *A) Convert() []dns.RR {
 
 type NS struct {
 	Servers []string `json:"servers"`
-	TTL     uint32
+	TTL     uint32   `json:"ttl"`
 }
 
 func (ns *NS) Convert() []dns.RR {
