@@ -7,15 +7,11 @@ import (
 )
 
 // An attempt to normalize record management so it can be addressed in a
-// generic way in the server. Functionally, you use Match() with the record
-// type and name for a linear search of all records, but this is duplicated in
-// the config object, which is less overhead. Convert() turns it into a []dns.RR
-// in almost all cases, but SOA records are special as they are a singleton.
+// generic way in the server. Convert() turns it into a []dns.RR in all
+// cases, required for different record types to be implemented manually.
 //
-// FIXME I think Match will be useful for additional situations, but right now it's
-// kind of dead weight.
+// Honestly it kind of sucks, but no generics soooooo...
 type Record interface {
-	Match(uint16, string) bool
 	Convert() []dns.RR
 }
 
@@ -27,10 +23,6 @@ type SOA struct {
 	Refresh uint32 `json:"refresh"`
 	Retry   uint32 `json:"retry"`
 	Expire  uint32 `json:"expire"`
-}
-
-func (soa *SOA) Match(t uint16, s string) bool {
-	return t == dns.TypeSOA && s == soa.Domain
 }
 
 func (soa *SOA) Convert() []dns.RR {
@@ -57,10 +49,6 @@ type A struct {
 	TTL       uint32
 }
 
-func (a *A) Match(t uint16, s string) bool {
-	return t == dns.TypeA && s == a.Name
-}
-
 func (a *A) Convert() []dns.RR {
 	ret := []dns.RR{}
 	for _, rec := range a.Addresses {
@@ -81,10 +69,6 @@ func (a *A) Convert() []dns.RR {
 type NS struct {
 	Servers []string `json:"servers"`
 	TTL     uint32
-}
-
-func (ns *NS) Match(t uint16, s string) bool {
-	return t == dns.TypeNS
 }
 
 func (ns *NS) Convert() []dns.RR {

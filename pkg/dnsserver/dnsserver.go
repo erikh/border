@@ -3,17 +3,15 @@ package dnsserver
 import (
 	"errors"
 	"strings"
-	"sync"
 
 	"github.com/erikh/border/pkg/config"
 	"github.com/miekg/dns"
 )
 
 type DNSServer struct {
-	Zones        map[string]config.Zone
-	rebuildMutex sync.RWMutex
-	udpServer    *dns.Server
-	tcpServer    *dns.Server
+	Zones     map[string]config.Zone
+	udpServer *dns.Server
+	tcpServer *dns.Server
 }
 
 // Start returns after the servers have started, and launches a UDP and TCP
@@ -43,8 +41,6 @@ func (ds *DNSServer) Start(listenSpec string) error {
 		}
 	}()
 
-	// FIXME might want to do something with contexts that's useful here to avoid
-	// deadlocks, which could happen on port collisions, etc.
 	for i := 0; i < 2; i++ {
 		if err := <-done; err != nil {
 			return err
@@ -76,7 +72,6 @@ func (ds *DNSServer) findZone(name string) *config.Zone {
 	names := dns.SplitDomainName(name)
 	// perform a greedy reverse search of the FQDN. If this code is working
 	// right, the longest match will be found first, finding the most local zone.
-	// This is probably broken in some subtle way, but YOLO.
 	for i := len(names); i > 0; i-- {
 		potentialZone := strings.Join(names[len(names)-i:len(names)], ".") + "."
 		if zone, ok := ds.Zones[potentialZone]; ok {
