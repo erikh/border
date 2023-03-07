@@ -9,7 +9,7 @@ import (
 // An attempt to normalize record management so it can be addressed in a
 // generic way in the server. Functionally, you use Match() with the record
 // type and name for a linear search of all records, but this is duplicated in
-// the config object, which is less overhead. Convert turns it into a []dns.RR
+// the config object, which is less overhead. Convert() turns it into a []dns.RR
 // in almost all cases, but SOA records are special as they are a singleton.
 //
 // FIXME I think Match will be useful for additional situations, but right now it's
