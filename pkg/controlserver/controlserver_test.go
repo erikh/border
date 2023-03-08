@@ -42,7 +42,7 @@ func authCheck(server *Server, body io.Reader) (*http.Response, error) {
 }
 
 func TestStartupShutdown(t *testing.T) {
-	server, err := Start(makeConfig(t), ":0", 10*time.Millisecond)
+	server, err := Start(makeConfig(t), ":0", 10*time.Millisecond, 10*time.Millisecond)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -72,7 +72,7 @@ func TestStartupShutdown(t *testing.T) {
 }
 
 func TestNonce(t *testing.T) {
-	server, err := Start(makeConfig(t), ":0", 10*time.Millisecond)
+	server, err := Start(makeConfig(t), ":0", 10*time.Millisecond, 10*time.Millisecond)
 	if err != nil {
 		t.Fatal(err)
 	}

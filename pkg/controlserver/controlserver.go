@@ -32,10 +32,10 @@ type Server struct {
 
 // Start the control server in the background.
 //
-// We assume after a second, the server has started. I can't see a better way
-// to do this with net/http since there is not a notifier callback. Would
-// prefer a better way to launch the server without blocking.
-func Start(config config.Config, listenSpec string, expireTime time.Duration) (*Server, error) {
+// We assume after bootWait, with no errors, the server has started. I can't
+// see a better way to do this with net/http since there is not a notifier
+// callback. Would prefer a better way to launch the server without blocking.
+func Start(config config.Config, listenSpec string, expireTime, bootWait time.Duration) (*Server, error) {
 	errChan := make(chan error, 1)
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -66,7 +66,7 @@ func Start(config config.Config, listenSpec string, expireTime time.Duration) (*
 	select {
 	case err := <-errChan:
 		return nil, err
-	case <-time.After(time.Second):
+	case <-time.After(bootWait):
 		return server, nil
 	}
 }
