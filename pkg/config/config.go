@@ -17,6 +17,7 @@ var (
 )
 
 type Config struct {
+	AuthKey     []byte          `json:"auth_key"` // will be represented as base64 through encoding/json
 	ControlPort uint            `json:"control_port"`
 	Publisher   net.IP          `json:"publisher"`
 	Peers       []Peer          `json:"peers"`
