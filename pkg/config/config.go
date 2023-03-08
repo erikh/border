@@ -9,6 +9,7 @@ import (
 
 	"github.com/erikh/border/pkg/dnsconfig"
 	"github.com/ghodss/yaml"
+	"github.com/go-jose/go-jose/v3"
 )
 
 var (
@@ -17,11 +18,11 @@ var (
 )
 
 type Config struct {
-	AuthKey     []byte          `json:"auth_key"` // will be represented as base64 through encoding/json
-	ControlPort uint            `json:"control_port"`
-	Publisher   net.IP          `json:"publisher"`
-	Peers       []Peer          `json:"peers"`
-	Zones       map[string]Zone `json:"zones"`
+	AuthKey     *jose.JSONWebKey `json:"auth_key"`
+	ControlPort uint             `json:"control_port"`
+	Publisher   net.IP           `json:"publisher"`
+	Peers       []Peer           `json:"peers"`
+	Zones       map[string]Zone  `json:"zones"`
 }
 
 type Peer struct {

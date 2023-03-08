@@ -2,11 +2,11 @@ package controlserver
 
 import (
 	"context"
-	"crypto/ed25519"
 	"crypto/rand"
 	"encoding/base64"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"sync"
 	"time"
@@ -21,9 +21,9 @@ const (
 )
 
 type Server struct {
-	server     *http.Server
-	listenSpec string
-	config     config.Config
+	server   *http.Server
+	listener net.Listener
+	config   config.Config
 
 	nonces     map[string]time.Time
 	nonceMutex sync.RWMutex
@@ -40,16 +40,26 @@ func Start(config config.Config, listenSpec string) (*Server, error) {
 	errChan := make(chan error, 1)
 
 	ctx, cancel := context.WithCancel(context.Background())
-	server := &Server{config: config, listenSpec: listenSpec, cancelSupervision: cancel}
+
+	l, err := net.Listen("tcp", listenSpec)
+	if err != nil {
+		return nil, err
+	}
+
+	server := &Server{
+		listener:          l,
+		nonces:            map[string]time.Time{},
+		config:            config,
+		cancelSupervision: cancel,
+	}
 
 	s := &http.Server{
-		Addr:    listenSpec,
 		Handler: server.configureMux(),
 	}
 
 	go server.expireNonces(ctx)
 	go func() {
-		errChan <- s.ListenAndServe()
+		errChan <- s.Serve(l)
 	}()
 
 	server.server = s
@@ -66,6 +76,7 @@ func Start(config config.Config, listenSpec string) (*Server, error) {
 func (s *Server) Shutdown(ctx context.Context) error {
 	// idea of the defer is to cancel supervision after shutdown, to avoid a network race
 	defer s.cancelSupervision()
+	defer s.listener.Close()
 	return s.Shutdown(ctx)
 }
 
@@ -93,7 +104,8 @@ func (s *Server) expireNonces(ctx context.Context) {
 }
 
 func (s *Server) getEncrypter() (jose.Encrypter, error) {
-	return jose.NewEncrypter(jose.A256GCM, jose.Recipient{Algorithm: jose.ED25519, Key: ed25519.PrivateKey(s.config.AuthKey).Public()}, nil)
+	pubKey := s.config.AuthKey.Public()
+	return jose.NewEncrypter(jose.A256GCM, jose.Recipient{Algorithm: jose.ECDH_ES_A256KW, Key: &pubKey}, nil)
 }
 
 func (s *Server) configureMux() *http.ServeMux {
@@ -166,7 +178,7 @@ func (s *Server) handleAuthCheck(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	nonce, err := o.Decrypt(ed25519.PrivateKey(s.config.AuthKey))
+	nonce, err := o.Decrypt(s.config.AuthKey)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Could not decrypt JWE request: %v", err), http.StatusInternalServerError)
 		return
