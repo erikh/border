@@ -39,13 +39,15 @@ type Server struct {
 func Start(config config.Config, listenSpec string) (*Server, error) {
 	errChan := make(chan error, 1)
 
-	server := &Server{config: config, listenSpec: listenSpec}
+	ctx, cancel := context.WithCancel(context.Background())
+	server := &Server{config: config, listenSpec: listenSpec, cancelSupervision: cancel}
 
 	s := &http.Server{
 		Addr:    listenSpec,
 		Handler: server.configureMux(),
 	}
 
+	go s.expireNonces(ctx)
 	go func() {
 		errChan <- s.ListenAndServe()
 	}()
@@ -62,6 +64,8 @@ func Start(config config.Config, listenSpec string) (*Server, error) {
 
 // Shutdown the server. Accept a context for timing out the shutdown process.
 func (s *Server) Shutdown(ctx context.Context) error {
+	// idea of the defer is to cancel supervision after shutdown, to avoid a network race
+	defer s.cancelSupervision()
 	return s.Shutdown(ctx)
 }
 
