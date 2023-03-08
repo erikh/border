@@ -81,7 +81,7 @@ func (s *Server) expireNonces(ctx context.Context) {
 				s.nonceMutex.Lock()
 				delete(s.nonces, n)
 				s.nonceMutex.Unlock()
-				continue // avoid the double unlock below
+				continue // XXX avoid the double unlock below
 			}
 			s.nonceMutex.RUnlock()
 		}
