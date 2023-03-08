@@ -2,8 +2,6 @@ package controlserver
 
 import (
 	"context"
-	"crypto/ecdsa"
-	"crypto/elliptic"
 	"crypto/rand"
 	"fmt"
 	"io"
@@ -16,12 +14,12 @@ import (
 )
 
 func makeConfig(t *testing.T) config.Config {
-	priv, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-	if err != nil {
+	key := make([]byte, 32)
+	if _, err := rand.Read(key); err != nil {
 		t.Fatal(err)
 	}
 
-	return config.Config{AuthKey: &jose.JSONWebKey{Key: priv, KeyID: "test", Algorithm: string(jose.ECDH_ES_A256KW)}}
+	return config.Config{AuthKey: &jose.JSONWebKey{Key: key, KeyID: "test", Algorithm: string(jose.A256KW)}}
 }
 
 func getNonce(server *Server) (*http.Response, error) {

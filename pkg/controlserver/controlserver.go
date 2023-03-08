@@ -103,8 +103,7 @@ func (s *Server) expireNonces(ctx context.Context) {
 }
 
 func (s *Server) getEncrypter() (jose.Encrypter, error) {
-	pubKey := s.config.AuthKey.Public() // Public() returns non-pointer for some reason
-	return jose.NewEncrypter(jose.A256GCM, jose.Recipient{Algorithm: jose.ECDH_ES_A256KW, Key: &pubKey}, nil)
+	return jose.NewEncrypter(jose.A256GCM, jose.Recipient{Algorithm: jose.A256KW, Key: s.config.AuthKey}, nil)
 }
 
 func (s *Server) configureMux() *http.ServeMux {
