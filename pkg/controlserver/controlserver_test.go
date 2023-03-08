@@ -1,6 +1,7 @@
 package controlserver
 
 import (
+	"context"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
@@ -8,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"testing"
+	"time"
 
 	"github.com/erikh/border/pkg/config"
 	"github.com/go-jose/go-jose/v3"
@@ -40,6 +42,18 @@ func TestStartupShutdown(t *testing.T) {
 	}
 
 	resp.Body.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+
+	if err := server.Shutdown(ctx); err != nil {
+		t.Fatal(err)
+	}
+
+	url = fmt.Sprintf("http://%s/nonce", server.listener.Addr())
+	if _, err := http.Get(url); err == nil {
+		t.Fatal("Server is still up; should no longer be")
+	}
 }
 
 func TestNonce(t *testing.T) {

@@ -77,7 +77,7 @@ func (s *Server) Shutdown(ctx context.Context) error {
 	// idea of the defer is to cancel supervision after shutdown, to avoid a network race
 	defer s.cancelSupervision()
 	defer s.listener.Close()
-	return s.Shutdown(ctx)
+	return s.server.Shutdown(ctx)
 }
 
 func (s *Server) expireNonces(ctx context.Context) {
