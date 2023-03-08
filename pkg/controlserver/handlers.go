@@ -11,24 +11,21 @@ import (
 	"github.com/go-jose/go-jose/v3"
 )
 
-// encrypts a nonce with the public key, derived from the private key. for
-// authentication challenges, it is expected that this nonce will be repeated
-// back to a request encrypted by the public key. As a result, both sides must
-// hold the private key, which I'm not happy about, but I'm struggling to think
-// of a better way.
+// encrypts a nonce with the key. for authentication challenges, it is expected
+// that this nonce will be repeated back to a request.
 func (s *Server) handleNonce(w http.ResponseWriter, r *http.Request) {
 	byt := make([]byte, nonceSize)
-
-	if n, err := rand.Read(byt); err != nil || n != nonceSize {
-		http.Error(w, fmt.Sprintf("Invalid entropy read (size: %d, error: %v)", n, err), http.StatusInternalServerError)
-		return
-	}
 
 	ok := true
 	var nonce string
 
 	// XXX potential to infinite loop; just seems really unlikely.
 	for ok {
+		if n, err := rand.Read(byt); err != nil || n != nonceSize {
+			http.Error(w, fmt.Sprintf("Invalid entropy read (size: %d, error: %v)", n, err), http.StatusInternalServerError)
+			return
+		}
+
 		nonce = base64.URLEncoding.EncodeToString(byt)
 		s.nonceMutex.RLock()
 		_, ok = s.nonces[nonce]
