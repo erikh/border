@@ -116,7 +116,7 @@ func (s *Server) handleNonce(w http.ResponseWriter, r *http.Request) {
 	ok := true
 	var nonce string
 
-	// FIXME potential to infinite loop; just seems really unlikely.
+	// XXX potential to infinite loop; just seems really unlikely.
 	for ok {
 		nonce = base64.URLEncoding.EncodeToString(byt)
 		s.nonceMutex.RLock()
