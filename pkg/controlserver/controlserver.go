@@ -17,7 +17,7 @@ import (
 
 const (
 	nonceSize       = 128
-	nonceExpiration = 30 * time.Second
+	NonceExpiration = 30 * time.Second // passed in to the Start() function, to make tests easier
 )
 
 type Server struct {
@@ -25,7 +25,10 @@ type Server struct {
 	listener net.Listener
 	config   config.Config
 
-	nonces     map[string]time.Time
+	nonces map[string]time.Time
+	// for testing performance; this just comes from a constant normally, but to
+	// wait in tests for a long time seems like a waste of everyone's time
+	expireTime time.Duration
 	nonceMutex sync.RWMutex
 
 	cancelSupervision context.CancelFunc
@@ -36,7 +39,7 @@ type Server struct {
 // We assume after a second, the server has started. I can't see a better way
 // to do this with net/http since there is not a notifier callback. Would
 // prefer a better way to launch the server without blocking.
-func Start(config config.Config, listenSpec string) (*Server, error) {
+func Start(config config.Config, listenSpec string, expireTime time.Duration) (*Server, error) {
 	errChan := make(chan error, 1)
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -51,6 +54,7 @@ func Start(config config.Config, listenSpec string) (*Server, error) {
 		nonces:            map[string]time.Time{},
 		config:            config,
 		cancelSupervision: cancel,
+		expireTime:        expireTime,
 	}
 
 	s := &http.Server{
@@ -86,12 +90,12 @@ func (s *Server) expireNonces(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		default:
-			time.Sleep(nonceExpiration)
+			time.Sleep(s.expireTime)
 		}
 
 		for n, t := range s.nonces {
 			s.nonceMutex.RLock()
-			if t.Before(time.Now().Add(-nonceExpiration)) {
+			if t.Before(time.Now().Add(-s.expireTime)) {
 				s.nonceMutex.RUnlock()
 				s.nonceMutex.Lock()
 				delete(s.nonces, n)
@@ -166,6 +170,11 @@ func (s *Server) handleNonce(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleAuthCheck(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "PUT" {
+		http.Error(w, "Invalid HTTP Method for Request", http.StatusMethodNotAllowed)
+		return
+	}
+
 	byt, err := io.ReadAll(r.Body)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Error in body read: %v", err), http.StatusInternalServerError)
@@ -192,7 +201,7 @@ func (s *Server) handleAuthCheck(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if t.Before(time.Now().Add(-nonceExpiration)) {
+	if t.Before(time.Now().Add(-s.expireTime)) {
 		http.Error(w, "Nonce has expired", http.StatusForbidden)
 		return
 	}
