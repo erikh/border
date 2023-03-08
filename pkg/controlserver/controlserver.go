@@ -113,7 +113,7 @@ func (s *Server) handleNonce(w http.ResponseWriter, r *http.Request) {
 	byt := make([]byte, nonceSize)
 
 	if n, err := rand.Read(byt); err != nil || n != nonceSize {
-		http.Error(w, fmt.Sprintf("Invalid entropy read (size: %d, error: %v)", n, err), 500)
+		http.Error(w, fmt.Sprintf("Invalid entropy read (size: %d, error: %v)", n, err), http.StatusInternalServerError)
 		return
 	}
 
@@ -134,19 +134,19 @@ func (s *Server) handleNonce(w http.ResponseWriter, r *http.Request) {
 
 	e, err := s.getEncrypter()
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Could not initialize encrypter: %v", err), 500)
+		http.Error(w, fmt.Sprintf("Could not initialize encrypter: %v", err), http.StatusInternalServerError)
 		return
 	}
 
 	cipherText, err := e.Encrypt([]byte(nonce))
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Could not encrypt ciphertext: %v", err), 500)
+		http.Error(w, fmt.Sprintf("Could not encrypt ciphertext: %v", err), http.StatusInternalServerError)
 		return
 	}
 
 	serialized, err := cipherText.CompactSerialize()
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Could not serialize JWE: %v", err), 500)
+		http.Error(w, fmt.Sprintf("Could not serialize JWE: %v", err), http.StatusInternalServerError)
 		return
 	}
 
@@ -156,19 +156,19 @@ func (s *Server) handleNonce(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleAuthCheck(w http.ResponseWriter, r *http.Request) {
 	byt, err := io.ReadAll(r.Body)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Error in body read: %v", err), 500)
+		http.Error(w, fmt.Sprintf("Error in body read: %v", err), http.StatusInternalServerError)
 		return
 	}
 
 	o, err := jose.ParseEncrypted(string(byt))
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Could not parse JWE request: %v", err), 500)
+		http.Error(w, fmt.Sprintf("Could not parse JWE request: %v", err), http.StatusInternalServerError)
 		return
 	}
 
 	nonce, err := o.Decrypt(ed25519.PrivateKey(s.config.AuthKey))
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Could not decrypt JWE request: %v", err), 500)
+		http.Error(w, fmt.Sprintf("Could not decrypt JWE request: %v", err), http.StatusInternalServerError)
 		return
 	}
 
@@ -176,12 +176,12 @@ func (s *Server) handleAuthCheck(w http.ResponseWriter, r *http.Request) {
 	t, ok := s.nonces[string(nonce)]
 	s.nonceMutex.RUnlock()
 	if !ok {
-		http.Error(w, fmt.Sprintf("Nonce provided does not exist: %v", err), 503)
+		http.Error(w, fmt.Sprintf("Nonce provided does not exist: %v", err), http.StatusForbidden)
 		return
 	}
 
 	if t.Before(time.Now().Add(-nonceExpiration)) {
-		http.Error(w, "Nonce has expired", 503)
+		http.Error(w, "Nonce has expired", http.StatusForbidden)
 		return
 	}
 
