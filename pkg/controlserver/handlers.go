@@ -2,7 +2,7 @@ package controlserver
 
 import (
 	"crypto/rand"
-	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -28,7 +28,8 @@ func (s *Server) handleNonce(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		nonce = base64.URLEncoding.EncodeToString(byt)
+		nonce = string(byt)
+
 		s.nonceMutex.RLock()
 		_, ok = s.nonces[nonce]
 		s.nonceMutex.RUnlock()
@@ -59,6 +60,7 @@ func (s *Server) handleNonce(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(serialized))
 }
 
+// handlePut deserializes a JWE request, which should be serviced via the PUT HTTP verb.
 func (s *Server) handlePut(r *http.Request) ([]byte, error) {
 	if r.Method != http.MethodPut {
 		return nil, errors.New("Invalid HTTP Method for Request")
@@ -77,15 +79,44 @@ func (s *Server) handlePut(r *http.Request) ([]byte, error) {
 	return o.Decrypt(s.config.AuthKey)
 }
 
-func (s *Server) handleAuthCheck(w http.ResponseWriter, r *http.Request) {
-	nonce, err := s.handlePut(r)
+type NonceRequired interface {
+	Unmarshal([]byte) error
+	Nonce() string
+}
+
+type AuthCheck []byte
+
+func (ac AuthCheck) Unmarshal(byt []byte) error {
+	copy(ac, byt)
+	return nil
+}
+
+func (ac AuthCheck) Nonce() string {
+	return string(ac)
+}
+
+func (s *Server) handleValidateNonce(r *http.Request, t NonceRequired) (int, error) {
+	byt, err := s.handlePut(r)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Invalid Request: %v", err), http.StatusInternalServerError)
-		return
+		return http.StatusInternalServerError, fmt.Errorf("Invalid Request: %w", err)
 	}
 
-	if err := s.validateNonce(string(nonce)); err != nil {
-		http.Error(w, fmt.Sprintf("Invalid request: %v", err), http.StatusForbidden)
+	if err := t.Unmarshal(byt); err != nil {
+		return http.StatusInternalServerError, fmt.Errorf("Couldn't unmarshal: %w", err)
+	}
+
+	if err := s.validateNonce(t.Nonce()); err != nil {
+		return http.StatusForbidden, fmt.Errorf("Invalid Request: %w", err)
+	}
+
+	return http.StatusOK, nil
+}
+
+func (s *Server) handleAuthCheck(w http.ResponseWriter, r *http.Request) {
+	nonce := make(AuthCheck, nonceSize)
+
+	if code, err := s.handleValidateNonce(r, nonce); err != nil {
+		http.Error(w, fmt.Sprintf("Nonce validation failed: %v", err), code)
 		return
 	}
 
@@ -93,15 +124,28 @@ func (s *Server) handleAuthCheck(w http.ResponseWriter, r *http.Request) {
 }
 
 type ConfigUpdateRequest struct {
-	Nonce  string        `json:"nonce"`
-	Config config.Config `json:"config"`
+	NonceValue string        `json:"nonce"`
+	Config     config.Config `json:"config"`
+}
+
+func (cur *ConfigUpdateRequest) Unmarshal(byt []byte) error {
+	return json.Unmarshal(byt, cur)
+}
+
+func (cur *ConfigUpdateRequest) Nonce() string {
+	return cur.NonceValue
 }
 
 func (s *Server) handleConfigUpdate(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPut {
-		http.Error(w, "Invalid HTTP Method for Request", http.StatusMethodNotAllowed)
+	var config ConfigUpdateRequest
+
+	if code, err := s.handleValidateNonce(r, &config); err != nil {
+		http.Error(w, fmt.Sprintf("Nonce validation failed: %v", err), code)
 		return
 	}
+
+	s.config = config.Config
+	// FIXME marshal to disk
 }
 
 func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request) {
