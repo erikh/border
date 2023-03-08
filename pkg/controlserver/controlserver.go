@@ -15,7 +15,7 @@ import (
 	"github.com/go-jose/go-jose/v3"
 )
 
-var (
+const (
 	nonceSize       = 128
 	nonceExpiration = 30 * time.Second
 )
@@ -47,7 +47,7 @@ func Start(config config.Config, listenSpec string) (*Server, error) {
 		Handler: server.configureMux(),
 	}
 
-	go s.expireNonces(ctx)
+	go server.expireNonces(ctx)
 	go func() {
 		errChan <- s.ListenAndServe()
 	}()
