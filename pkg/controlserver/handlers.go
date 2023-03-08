@@ -3,11 +3,13 @@ package controlserver
 import (
 	"crypto/rand"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"time"
 
+	"github.com/erikh/border/pkg/config"
 	"github.com/go-jose/go-jose/v3"
 )
 
@@ -57,48 +59,49 @@ func (s *Server) handleNonce(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(serialized))
 }
 
-func (s *Server) handleAuthCheck(w http.ResponseWriter, r *http.Request) {
-	if r.Method != "PUT" {
-		http.Error(w, "Invalid HTTP Method for Request", http.StatusMethodNotAllowed)
-		return
+func (s *Server) handlePut(r *http.Request) ([]byte, error) {
+	if r.Method != http.MethodPut {
+		return nil, errors.New("Invalid HTTP Method for Request")
 	}
 
 	byt, err := io.ReadAll(r.Body)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Error in body read: %v", err), http.StatusInternalServerError)
-		return
+		return nil, fmt.Errorf("Could not read body: %w", err)
 	}
 
 	o, err := jose.ParseEncrypted(string(byt))
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Could not parse JWE request: %v", err), http.StatusInternalServerError)
-		return
+		return nil, fmt.Errorf("Could not parse JWE request: %w", err)
 	}
 
-	nonce, err := o.Decrypt(s.config.AuthKey)
+	return o.Decrypt(s.config.AuthKey)
+}
+
+func (s *Server) handleAuthCheck(w http.ResponseWriter, r *http.Request) {
+	nonce, err := s.handlePut(r)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Could not decrypt JWE request: %v", err), http.StatusInternalServerError)
+		http.Error(w, fmt.Sprintf("Invalid Request: %v", err), http.StatusInternalServerError)
 		return
 	}
 
-	s.nonceMutex.RLock()
-	t, ok := s.nonces[string(nonce)]
-	s.nonceMutex.RUnlock()
-	if !ok {
-		http.Error(w, fmt.Sprintf("Nonce provided does not exist: %v", err), http.StatusForbidden)
+	if err := s.validateNonce(string(nonce)); err != nil {
+		http.Error(w, fmt.Sprintf("Invalid request: %v", err), http.StatusForbidden)
 		return
 	}
-
-	if t.Before(time.Now().Add(-s.expireTime)) {
-		http.Error(w, "Nonce has expired", http.StatusForbidden)
-		return
-	}
-
-	s.nonceMutex.Lock()
-	delete(s.nonces, string(nonce))
-	s.nonceMutex.Unlock()
 
 	// Authenticated!
+}
+
+type ConfigUpdateRequest struct {
+	Nonce  string        `json:"nonce"`
+	Config config.Config `json:"config"`
+}
+
+func (s *Server) handleConfigUpdate(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPut {
+		http.Error(w, "Invalid HTTP Method for Request", http.StatusMethodNotAllowed)
+		return
+	}
 }
 
 func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request) {

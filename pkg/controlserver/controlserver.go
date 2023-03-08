@@ -2,6 +2,7 @@ package controlserver
 
 import (
 	"context"
+	"errors"
 	"net"
 	"net/http"
 	"sync"
@@ -112,4 +113,23 @@ func (s *Server) configureMux() *http.ServeMux {
 	mux.HandleFunc("/authcheck", s.handleAuthCheck)
 	mux.HandleFunc("/register", s.handleRegister)
 	return mux
+}
+
+func (s *Server) validateNonce(nonce string) error {
+	s.nonceMutex.RLock()
+	t, ok := s.nonces[nonce]
+	s.nonceMutex.RUnlock()
+	if !ok {
+		return errors.New("Nonce provided does not exist")
+	}
+
+	if t.Before(time.Now().Add(-s.expireTime)) {
+		return errors.New("Nonce has expired")
+	}
+
+	s.nonceMutex.Lock()
+	delete(s.nonces, string(nonce))
+	s.nonceMutex.Unlock()
+
+	return nil
 }
