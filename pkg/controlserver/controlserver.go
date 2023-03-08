@@ -111,7 +111,7 @@ func (s *Server) configureMux() *http.ServeMux {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/nonce", s.handleNonce)
 	mux.HandleFunc("/authCheck", s.handleAuthCheck)
-	mux.HandleFunc("/configUpdate", s.handleAuthCheck)
+	mux.HandleFunc("/configUpdate", s.handleConfigUpdate)
 	mux.HandleFunc("/register", s.handleRegister)
 	return mux
 }

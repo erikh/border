@@ -124,7 +124,7 @@ func (s *Server) handleAuthCheck(w http.ResponseWriter, r *http.Request) {
 }
 
 type ConfigUpdateRequest struct {
-	NonceValue string        `json:"nonce"`
+	NonceValue []byte        `json:"nonce"`
 	Config     config.Config `json:"config"`
 }
 
@@ -133,7 +133,7 @@ func (cur *ConfigUpdateRequest) Unmarshal(byt []byte) error {
 }
 
 func (cur *ConfigUpdateRequest) Nonce() string {
-	return cur.NonceValue
+	return string(cur.NonceValue)
 }
 
 func (s *Server) handleConfigUpdate(w http.ResponseWriter, r *http.Request) {
