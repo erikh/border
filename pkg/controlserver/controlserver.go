@@ -188,6 +188,5 @@ func (s *Server) handleAuthCheck(w http.ResponseWriter, r *http.Request) {
 	// Authenticated!
 }
 
-//
-// func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request) {
-// }
+func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request) {
+}
