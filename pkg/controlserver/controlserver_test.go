@@ -24,14 +24,18 @@ func makeConfig(t *testing.T) config.Config {
 	return config.Config{AuthKey: &jose.JSONWebKey{Key: priv, KeyID: "test", Algorithm: string(jose.ECDH_ES_A256KW)}}
 }
 
+func getNonce(server *Server) (*http.Response, error) {
+	url := fmt.Sprintf("http://%s/nonce", server.listener.Addr())
+	return http.Get(url)
+}
+
 func TestStartupShutdown(t *testing.T) {
 	server, err := Start(makeConfig(t), ":0")
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	url := fmt.Sprintf("http://%s/nonce", server.listener.Addr())
-	resp, err := http.Get(url)
+	resp, err := getNonce(server)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -50,8 +54,7 @@ func TestStartupShutdown(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	url = fmt.Sprintf("http://%s/nonce", server.listener.Addr())
-	if _, err := http.Get(url); err == nil {
+	if _, err := getNonce(server); err == nil {
 		t.Fatal("Server is still up; should no longer be")
 	}
 }
