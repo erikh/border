@@ -52,9 +52,9 @@ func TestStartupShutdown(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if resp.StatusCode != 200 {
+	if resp.StatusCode != http.StatusOK {
 		out, _ := io.ReadAll(resp.Body)
-		t.Fatalf("Nonce check failed: status code was not 200, was %d: error: %v", resp.StatusCode, string(out))
+		t.Fatalf("Nonce check failed: status code was not 200 was %d: error: %v", resp.StatusCode, string(out))
 	}
 
 	resp.Body.Close()
@@ -87,9 +87,9 @@ func TestNonce(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if resp.StatusCode != 200 {
+	if resp.StatusCode != http.StatusOK {
 		out, _ := io.ReadAll(resp.Body)
-		t.Fatalf("Nonce check failed: status code was not 200, was %d: error: %v", resp.StatusCode, string(out))
+		t.Fatalf("Nonce check failed: status code was not 200 was %d: error: %v", resp.StatusCode, string(out))
 	}
 
 	defer resp.Body.Close()
@@ -99,9 +99,9 @@ func TestNonce(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if resp.StatusCode != 200 {
+	if resp.StatusCode != http.StatusOK {
 		out, _ := io.ReadAll(resp.Body)
-		t.Fatalf("Nonce check failed: status code was not 200, was %d: error: %v", resp.StatusCode, string(out))
+		t.Fatalf("Nonce check failed: status code was not 200 was %d: error: %v", resp.StatusCode, string(out))
 	}
 
 	resp.Body.Close()
@@ -112,9 +112,9 @@ func TestNonce(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if resp.StatusCode != 200 {
+	if resp.StatusCode != http.StatusOK {
 		out, _ := io.ReadAll(resp.Body)
-		t.Fatalf("Nonce check failed: status code was not 200, was %d: error: %v", resp.StatusCode, string(out))
+		t.Fatalf("Nonce check failed: status code was not 200 was %d: error: %v", resp.StatusCode, string(out))
 	}
 
 	defer resp.Body.Close()
