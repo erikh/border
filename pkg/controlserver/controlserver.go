@@ -110,7 +110,8 @@ func (s *Server) getEncrypter() (jose.Encrypter, error) {
 func (s *Server) configureMux() *http.ServeMux {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/nonce", s.handleNonce)
-	mux.HandleFunc("/authcheck", s.handleAuthCheck)
+	mux.HandleFunc("/authCheck", s.handleAuthCheck)
+	mux.HandleFunc("/configUpdate", s.handleAuthCheck)
 	mux.HandleFunc("/register", s.handleRegister)
 	return mux
 }

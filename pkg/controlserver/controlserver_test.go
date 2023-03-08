@@ -31,7 +31,7 @@ func authCheck(server *Server, body io.Reader) (*http.Response, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 
-	req, err := http.NewRequest("PUT", fmt.Sprintf("http://%s/authcheck", server.listener.Addr()), body)
+	req, err := http.NewRequest("PUT", fmt.Sprintf("http://%s/authCheck", server.listener.Addr()), body)
 	if err != nil {
 		return nil, err
 	}
