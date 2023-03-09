@@ -82,6 +82,7 @@ func (s *Server) handlePut(r *http.Request) ([]byte, error) {
 type NonceRequired interface {
 	Unmarshal([]byte) error
 	Nonce() string
+	SetNonce([]byte)
 }
 
 type AuthCheck []byte
@@ -93,6 +94,10 @@ func (ac AuthCheck) Unmarshal(byt []byte) error {
 
 func (ac AuthCheck) Nonce() string {
 	return string(ac)
+}
+
+func (ac AuthCheck) SetNonce(nonce []byte) {
+	ac.Unmarshal(nonce)
 }
 
 func (s *Server) handleValidateNonce(r *http.Request, t NonceRequired) (int, error) {
@@ -136,6 +141,10 @@ func (cur *ConfigUpdateRequest) Nonce() string {
 	return string(cur.NonceValue)
 }
 
+func (cur *ConfigUpdateRequest) SetNonce(nonce []byte) {
+	cur.NonceValue = nonce
+}
+
 func (s *Server) handleConfigUpdate(w http.ResponseWriter, r *http.Request) {
 	var config ConfigUpdateRequest
 
@@ -159,6 +168,10 @@ func (peer *PeerRegistrationRequest) Unmarshal(byt []byte) error {
 
 func (peer *PeerRegistrationRequest) Nonce() string {
 	return string(peer.NonceValue)
+}
+
+func (peer *PeerRegistrationRequest) SetNonce(nonce []byte) {
+	peer.NonceValue = nonce
 }
 
 func (s *Server) handlePeerRegister(w http.ResponseWriter, r *http.Request) {
