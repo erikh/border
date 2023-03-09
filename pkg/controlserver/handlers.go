@@ -166,8 +166,8 @@ func (s *Server) handleConfigUpdate(w http.ResponseWriter, r *http.Request) {
 }
 
 type PeerRegistrationRequest struct {
-	NonceValue []byte `json:"nonce"`
-	Peer       config.Peer
+	NonceValue []byte      `json:"nonce"`
+	Peer       config.Peer `json:"peer"`
 }
 
 func (peer *PeerRegistrationRequest) Unmarshal(byt []byte) error {
