@@ -8,6 +8,8 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"os"
+	"path/filepath"
 	"reflect"
 	"testing"
 	"time"
@@ -23,7 +25,16 @@ func makeConfig(t *testing.T) config.Config {
 		t.Fatal(err)
 	}
 
-	return config.Config{AuthKey: jwk}
+	dir, err := os.MkdirTemp("", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	t.Cleanup(func() {
+		os.RemoveAll(dir)
+	})
+
+	return config.Config{FilenamePrefix: filepath.Join(dir, "config"), AuthKey: jwk}
 }
 
 func getNonce(server *Server) (*http.Response, error) {

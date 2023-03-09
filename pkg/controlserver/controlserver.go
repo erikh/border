@@ -3,6 +3,7 @@ package controlserver
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net"
 	"net/http"
 	"sync"
@@ -115,6 +116,12 @@ func (s *Server) configureMux() *http.ServeMux {
 	mux.HandleFunc("/configUpdate", s.handleConfigUpdate)
 	mux.HandleFunc("/peerRegister", s.handlePeerRegister)
 	return mux
+}
+
+func (s *Server) saveConfig(w http.ResponseWriter) {
+	if err := s.config.Save(); err != nil {
+		http.Error(w, fmt.Sprintf("Could not save configuration: %v", err), http.StatusInternalServerError)
+	}
 }
 
 func (s *Server) validateNonce(nonce string) error {

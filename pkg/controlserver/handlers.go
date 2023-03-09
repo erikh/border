@@ -156,10 +156,13 @@ func (s *Server) handleConfigUpdate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	s.configMutex.Lock()
+	oldConfig := s.config
 	s.config = c.Config
+	// XXX hack around the lack of JSON serialization for FilenamePrefix
+	s.config.FilenamePrefix = oldConfig.FilenamePrefix
 	s.configMutex.Unlock()
 
-	// FIXME marshal to disk
+	s.saveConfig(w)
 }
 
 type PeerRegistrationRequest struct {
@@ -191,5 +194,5 @@ func (s *Server) handlePeerRegister(w http.ResponseWriter, r *http.Request) {
 	s.config.Peers = append(s.config.Peers, peerRequest.Peer)
 	s.configMutex.Unlock()
 
-	// FIXME marshal to disk
+	s.saveConfig(w)
 }

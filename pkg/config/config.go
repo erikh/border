@@ -3,9 +3,11 @@ package config
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net"
 	"os"
+	"sync"
 
 	"github.com/erikh/border/pkg/dnsconfig"
 	"github.com/ghodss/yaml"
@@ -17,12 +19,15 @@ var (
 	ErrLoad = errors.New("while loading configuration from disk")
 )
 
+var FileMutex sync.RWMutex
+
 type Config struct {
-	AuthKey     *jose.JSONWebKey `json:"auth_key"`
-	ControlPort uint             `json:"control_port"`
-	Publisher   net.IP           `json:"publisher"`
-	Peers       []Peer           `json:"peers"`
-	Zones       map[string]Zone  `json:"zones"`
+	FilenamePrefix string           `json:"-"` // prefix of filename to save to and read from
+	AuthKey        *jose.JSONWebKey `json:"auth_key"`
+	ControlPort    uint             `json:"control_port"`
+	Publisher      net.IP           `json:"publisher"`
+	Peers          []Peer           `json:"peers"`
+	Zones          map[string]Zone  `json:"zones"`
 }
 
 type Peer struct {
@@ -51,6 +56,30 @@ func LoadYAML(data []byte) (Config, error) {
 	var c Config
 	err := yaml.Unmarshal(data, &c)
 	return c, err
+}
+
+func (c Config) Save() error {
+	if c.FilenamePrefix == "" {
+		return errors.New("invalid filename prefix")
+	}
+
+	fi, err := os.Stat(c.FilenamePrefix)
+	if (fi != nil && fi.IsDir()) || err == nil {
+		return fmt.Errorf("Filename prefix %q exists or is a directory, should not be", c.FilenamePrefix)
+	}
+
+	FileMutex.Lock()
+	defer FileMutex.Unlock()
+
+	if err := ToDisk(c.FilenamePrefix+".json", c.SaveToJSON); err != nil {
+		return err
+	}
+
+	if err := ToDisk(c.FilenamePrefix+".yaml", c.SaveToYAML); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (c Config) SaveToJSON() ([]byte, error) {
