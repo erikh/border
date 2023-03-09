@@ -26,8 +26,8 @@ type Config struct {
 }
 
 type Peer struct {
-	IP  net.IP `json:"ip"`
-	Key string `json:"key"`
+	IP  net.IP           `json:"ip"`
+	Key *jose.JSONWebKey `json:"key"`
 }
 
 type Zone struct {

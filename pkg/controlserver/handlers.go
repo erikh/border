@@ -148,5 +148,27 @@ func (s *Server) handleConfigUpdate(w http.ResponseWriter, r *http.Request) {
 	// FIXME marshal to disk
 }
 
-func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request) {
+type PeerRegistrationRequest struct {
+	NonceValue []byte `json:"nonce"`
+	Peer       config.Peer
+}
+
+func (peer *PeerRegistrationRequest) Unmarshal(byt []byte) error {
+	return json.Unmarshal(byt, peer)
+}
+
+func (peer *PeerRegistrationRequest) Nonce() string {
+	return string(peer.NonceValue)
+}
+
+func (s *Server) handlePeerRegister(w http.ResponseWriter, r *http.Request) {
+	var peerRequest PeerRegistrationRequest
+
+	if code, err := s.handleValidateNonce(r, &peerRequest); err != nil {
+		http.Error(w, fmt.Sprintf("Nonce validation failed: %v", err), code)
+		return
+	}
+
+	s.config.Peers = append(s.config.Peers, peerRequest.Peer)
+	// FIXME marshal to disk
 }

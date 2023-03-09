@@ -3,25 +3,27 @@ package controlserver
 import (
 	"bytes"
 	"context"
-	"crypto/rand"
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
+	"reflect"
 	"testing"
 	"time"
 
 	"github.com/erikh/border/pkg/config"
+	"github.com/erikh/border/pkg/josekit"
 	"github.com/go-jose/go-jose/v3"
 )
 
 func makeConfig(t *testing.T) config.Config {
-	key := make([]byte, 32)
-	if _, err := rand.Read(key); err != nil {
+	jwk, err := josekit.MakeKey("test")
+	if err != nil {
 		t.Fatal(err)
 	}
 
-	return config.Config{AuthKey: &jose.JSONWebKey{Key: key, KeyID: "test", Algorithm: string(jose.A256KW)}}
+	return config.Config{AuthKey: jwk}
 }
 
 func getNonce(server *Server) (*http.Response, error) {
@@ -223,5 +225,121 @@ func TestConfigUpdate(t *testing.T) {
 
 	if server.config.ControlPort != jenny {
 		t.Fatal("configuration was not updated")
+	}
+}
+
+func TestPeerRegistration(t *testing.T) {
+	jwk, err := josekit.MakeKey("peer")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	peer := config.Peer{
+		IP:  net.ParseIP("127.0.0.1"),
+		Key: jwk,
+	}
+
+	server, err := Start(makeConfig(t), ":0", 10*time.Millisecond, 10*time.Millisecond)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
+		server.Shutdown(ctx)
+	})
+
+	resp, err := getNonce(server)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		out, _ := io.ReadAll(resp.Body)
+		t.Fatalf("Nonce check failed: status code was not 200 was %d: error: %v", resp.StatusCode, string(out))
+	}
+
+	nonce, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	enc, err := jose.ParseEncrypted(string(nonce))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	nonce, err = enc.Decrypt(server.config.AuthKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	encrypter, err := server.getEncrypter()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	buf, err := json.Marshal(PeerRegistrationRequest{NonceValue: nonce, Peer: peer})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	cipherText, err := encrypter.Encrypt(buf)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	out, err := cipherText.CompactSerialize()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+
+	req, err := http.NewRequest("PUT", fmt.Sprintf("http://%s/peerRegister", server.listener.Addr()), bytes.NewBuffer([]byte(out)))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	resp, err = http.DefaultClient.Do(req.WithContext(ctx))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		byt, err := io.ReadAll(resp.Body)
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Fatalf("Status was not OK after peer registration call, status was %v: %v", resp.StatusCode, string(byt))
+	}
+
+	resp.Body.Close()
+
+	var ok bool
+
+	for _, newPeer := range server.config.Peers {
+		// reflect.DeepEqual doesn't work well with pointer values, so we marshal
+		// the keys out (which are pointers) and compare the resulting strings.
+		// last I checked, encoding/json was deterministic, so this should be
+		// solid.
+		key, err := peer.Key.MarshalJSON()
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		newKey, err := newPeer.Key.MarshalJSON()
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if ok = reflect.DeepEqual(peer.IP, newPeer.IP) && string(key) == string(newKey); ok {
+			break
+		}
+	}
+
+	if !ok {
+		t.Fatal("never found peer")
 	}
 }
