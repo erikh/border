@@ -71,12 +71,20 @@ func (c Config) Save() error {
 	FileMutex.Lock()
 	defer FileMutex.Unlock()
 
-	if err := ToDisk(c.FilenamePrefix+".json", c.SaveToJSON); err != nil {
+	if err := ToDisk(c.FilenamePrefix+".json.tmp", c.SaveToJSON); err != nil {
 		return err
 	}
 
-	if err := ToDisk(c.FilenamePrefix+".yaml", c.SaveToYAML); err != nil {
+	if err := os.Rename(c.FilenamePrefix+".json.tmp", c.FilenamePrefix+".json"); err != nil {
+		return fmt.Errorf("Could not move configuration file into place: %w", err)
+	}
+
+	if err := ToDisk(c.FilenamePrefix+".yaml.tmp", c.SaveToYAML); err != nil {
 		return err
+	}
+
+	if err := os.Rename(c.FilenamePrefix+".yaml.tmp", c.FilenamePrefix+".yaml"); err != nil {
+		return fmt.Errorf("Could not move configuration file into place: %w", err)
 	}
 
 	return nil
