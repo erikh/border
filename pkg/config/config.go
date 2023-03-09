@@ -61,7 +61,10 @@ func (c Config) SaveToYAML() ([]byte, error) {
 	return yaml.Marshal(c)
 }
 
-func ToDisk(filename string, dumperFunc func() ([]byte, error)) error {
+type DumperFunc func() ([]byte, error)
+type LoaderFunc func([]byte) (Config, error)
+
+func ToDisk(filename string, dumperFunc DumperFunc) error {
 	b, err := dumperFunc()
 	if err != nil {
 		return errors.Join(ErrDump, err)
@@ -80,7 +83,7 @@ func ToDisk(filename string, dumperFunc func() ([]byte, error)) error {
 	return nil
 }
 
-func FromDisk(filename string, loaderFunc func([]byte) (Config, error)) (Config, error) {
+func FromDisk(filename string, loaderFunc LoaderFunc) (Config, error) {
 	var c Config
 
 	f, err := os.Open(filename)
