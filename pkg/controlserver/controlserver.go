@@ -25,8 +25,9 @@ type Server struct {
 	nonces map[string]time.Time
 	// for testing performance; this just comes from a constant normally, but to
 	// wait in tests for a long time seems like a waste of everyone's time
-	expireTime time.Duration
-	nonceMutex sync.RWMutex
+	expireTime  time.Duration
+	nonceMutex  sync.RWMutex
+	configMutex sync.RWMutex
 
 	cancelSupervision context.CancelFunc
 }

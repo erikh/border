@@ -6,7 +6,6 @@ import (
 	"io"
 	"net"
 	"os"
-	"sync"
 
 	"github.com/erikh/border/pkg/dnsconfig"
 	"github.com/ghodss/yaml"
@@ -17,8 +16,6 @@ var (
 	ErrDump = errors.New("while dumping configuration to disk")
 	ErrLoad = errors.New("while loading configuration from disk")
 )
-
-var ConfigMutex = sync.RWMutex{}
 
 type Config struct {
 	AuthKey     *jose.JSONWebKey `json:"auth_key"`

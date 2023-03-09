@@ -76,8 +76,8 @@ func (s *Server) handlePut(r *http.Request) ([]byte, error) {
 		return nil, fmt.Errorf("Could not parse JWE request: %w", err)
 	}
 
-	config.ConfigMutex.RLock()
-	defer config.ConfigMutex.RUnlock()
+	s.configMutex.RLock()
+	defer s.configMutex.RUnlock()
 	return o.Decrypt(s.config.AuthKey)
 }
 
@@ -155,9 +155,9 @@ func (s *Server) handleConfigUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	config.ConfigMutex.Lock()
+	s.configMutex.Lock()
 	s.config = c.Config
-	config.ConfigMutex.Unlock()
+	s.configMutex.Unlock()
 
 	// FIXME marshal to disk
 }
@@ -187,9 +187,9 @@ func (s *Server) handlePeerRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	config.ConfigMutex.Lock()
+	s.configMutex.Lock()
 	s.config.Peers = append(s.config.Peers, peerRequest.Peer)
-	config.ConfigMutex.Unlock()
+	s.configMutex.Unlock()
 
 	// FIXME marshal to disk
 }
