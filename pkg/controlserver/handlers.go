@@ -76,6 +76,8 @@ func (s *Server) handlePut(r *http.Request) ([]byte, error) {
 		return nil, fmt.Errorf("Could not parse JWE request: %w", err)
 	}
 
+	config.ConfigMutex.RLock()
+	defer config.ConfigMutex.RUnlock()
 	return o.Decrypt(s.config.AuthKey)
 }
 
@@ -146,14 +148,17 @@ func (cur *ConfigUpdateRequest) SetNonce(nonce []byte) {
 }
 
 func (s *Server) handleConfigUpdate(w http.ResponseWriter, r *http.Request) {
-	var config ConfigUpdateRequest
+	var c ConfigUpdateRequest
 
-	if code, err := s.handleValidateNonce(r, &config); err != nil {
+	if code, err := s.handleValidateNonce(r, &c); err != nil {
 		http.Error(w, fmt.Sprintf("Nonce validation failed: %v", err), code)
 		return
 	}
 
-	s.config = config.Config
+	config.ConfigMutex.Lock()
+	s.config = c.Config
+	config.ConfigMutex.Unlock()
+
 	// FIXME marshal to disk
 }
 
@@ -182,6 +187,9 @@ func (s *Server) handlePeerRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	config.ConfigMutex.Lock()
 	s.config.Peers = append(s.config.Peers, peerRequest.Peer)
+	config.ConfigMutex.Unlock()
+
 	// FIXME marshal to disk
 }
