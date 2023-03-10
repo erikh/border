@@ -180,9 +180,9 @@ func TestNonce(t *testing.T) {
 
 func TestConfigUpdate(t *testing.T) {
 	config := makeConfig(t)
-	const jenny = 8675309
+	const jenny = ":5309"
 
-	config.ControlPort = jenny
+	config.Listen.Control = jenny
 
 	server := testHandler(
 		t,
@@ -191,7 +191,7 @@ func TestConfigUpdate(t *testing.T) {
 		&api.ConfigUpdateRequest{Config: config},
 	)
 
-	if server.config.ControlPort != jenny {
+	if server.config.Listen.Control != jenny {
 		t.Fatal("configuration was not updated")
 	}
 }

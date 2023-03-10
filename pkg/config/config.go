@@ -8,6 +8,7 @@ import (
 	"net"
 	"os"
 	"sync"
+	"time"
 
 	"github.com/erikh/border/pkg/dnsconfig"
 	"github.com/ghodss/yaml"
@@ -23,11 +24,17 @@ var FileMutex sync.RWMutex
 
 type Config struct {
 	FilenamePrefix string           `json:"-"` // prefix of filename to save to and read from
+	ShutdownWait   time.Duration    `json:"shutdown_wait"`
 	AuthKey        *jose.JSONWebKey `json:"auth_key"`
-	ControlPort    uint             `json:"control_port"`
+	Listen         ListenConfig     `json:"listen"`
 	Publisher      net.IP           `json:"publisher"`
 	Peers          []Peer           `json:"peers"`
 	Zones          map[string]Zone  `json:"zones"`
+}
+
+type ListenConfig struct {
+	Control string `json:"control"`
+	DNS     string `json:"dns"`
 }
 
 type Peer struct {
@@ -71,7 +78,7 @@ func (c Config) Save() error {
 	FileMutex.Lock()
 	defer FileMutex.Unlock()
 
-	if err := ToDisk(c.FilenamePrefix+".json.tmp", c.SaveToJSON); err != nil {
+	if err := ToDisk(c.FilenamePrefix+".json.tmp", c.SaveJSON); err != nil {
 		return err
 	}
 
@@ -79,7 +86,7 @@ func (c Config) Save() error {
 		return fmt.Errorf("Could not move configuration file into place: %w", err)
 	}
 
-	if err := ToDisk(c.FilenamePrefix+".yaml.tmp", c.SaveToYAML); err != nil {
+	if err := ToDisk(c.FilenamePrefix+".yaml.tmp", c.SaveYAML); err != nil {
 		return err
 	}
 
@@ -90,11 +97,11 @@ func (c Config) Save() error {
 	return nil
 }
 
-func (c Config) SaveToJSON() ([]byte, error) {
+func (c Config) SaveJSON() ([]byte, error) {
 	return json.MarshalIndent(c, "", "  ")
 }
 
-func (c Config) SaveToYAML() ([]byte, error) {
+func (c Config) SaveYAML() ([]byte, error) {
 	return yaml.Marshal(c)
 }
 

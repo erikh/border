@@ -32,9 +32,9 @@ func TestMarshal(t *testing.T) {
 	// be filled in or the comparisons will not be equal. They cannot just be
 	// nil.
 	c := Config{
-		ControlPort: 8675309,
-		Peers:       []Peer{},
-		Zones:       map[string]Zone{},
+		Listen: ListenConfig{Control: ":5309"},
+		Peers:  []Peer{},
+		Zones:  map[string]Zone{},
 	}
 
 	dir, err := os.MkdirTemp("", "")
@@ -48,7 +48,7 @@ func TestMarshal(t *testing.T) {
 
 	p := path.Join(dir, "config.json")
 
-	if err := ToDisk(p, c.SaveToJSON); err != nil {
+	if err := ToDisk(p, c.SaveJSON); err != nil {
 		t.Fatal(err)
 	}
 
@@ -63,7 +63,7 @@ func TestMarshal(t *testing.T) {
 
 	p = path.Join(dir, "config.yaml")
 
-	if err := ToDisk(p, c.SaveToYAML); err != nil {
+	if err := ToDisk(p, c.SaveYAML); err != nil {
 		t.Fatal(err)
 	}
 
