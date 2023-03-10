@@ -72,6 +72,7 @@ func addDot(key string) string {
 	return key
 }
 
+// Trim the trailing dot from zone records. Used in saving the configuration.
 func (c *Config) TrimZones() {
 	newZones := map[string]Zone{}
 
@@ -93,6 +94,7 @@ func (c *Config) TrimZones() {
 	c.Zones = newZones
 }
 
+// Decorate zones with a trailing dot. Used in loading the configuration.
 func (c *Config) DecorateZones() {
 	newZones := map[string]Zone{}
 
