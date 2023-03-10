@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/erikh/border/pkg/config"
-	"github.com/go-jose/go-jose/v3"
 )
 
 const (
@@ -103,10 +102,6 @@ func (s *Server) expireNonces(ctx context.Context) {
 			s.nonceMutex.RUnlock()
 		}
 	}
-}
-
-func (s *Server) getEncrypter() (jose.Encrypter, error) {
-	return jose.NewEncrypter(jose.A256GCM, jose.Recipient{Algorithm: jose.A256KW, Key: s.config.AuthKey}, nil)
 }
 
 func (s *Server) configureMux() *http.ServeMux {

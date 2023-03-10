@@ -16,3 +16,7 @@ func MakeKey(kid string) (*jose.JSONWebKey, error) {
 
 	return &jose.JSONWebKey{Key: key, KeyID: kid, Algorithm: string(jose.A256KW)}, nil
 }
+
+func GetEncrypter(authKey *jose.JSONWebKey) (jose.Encrypter, error) {
+	return jose.NewEncrypter(jose.A256GCM, jose.Recipient{Algorithm: jose.A256KW, Key: authKey}, nil)
+}

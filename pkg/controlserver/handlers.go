@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/erikh/border/pkg/api"
+	"github.com/erikh/border/pkg/josekit"
 	"github.com/go-jose/go-jose/v3"
 )
 
@@ -38,7 +39,7 @@ func (s *Server) handleNonce(w http.ResponseWriter, r *http.Request) {
 	s.nonces[nonce] = time.Now()
 	s.nonceMutex.Unlock()
 
-	e, err := s.getEncrypter()
+	e, err := josekit.GetEncrypter(s.config.AuthKey)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Could not initialize encrypter: %v", err), http.StatusInternalServerError)
 		return
@@ -116,14 +117,46 @@ func (s *Server) handleConfigUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.configMutex.Lock()
-	oldConfig := s.config
-	s.config = c.Config
-	// XXX hack around the lack of JSON serialization for FilenamePrefix
-	s.config.FilenamePrefix = oldConfig.FilenamePrefix
-	s.configMutex.Unlock()
+	// if we do not do this last, the authkey may change, which will gum up the
+	// encryption of the response. Since there is no response this is not an
+	// issue in theory, but in practice the encryption will break, rendering the
+	// response invalid.
+	defer func() {
+		s.configMutex.Lock()
+		oldConfig := s.config
+		s.config = c.Config
+		// XXX hack around the lack of JSON serialization for FilenamePrefix
+		s.config.FilenamePrefix = oldConfig.FilenamePrefix
+		s.configMutex.Unlock()
+		s.saveConfig(w)
+	}()
 
-	s.saveConfig(w)
+	resp := api.NilResponse{}
+	byt, err := resp.Marshal()
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Could not marshal response: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	e, err := josekit.GetEncrypter(s.config.AuthKey)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Could not initialize encrypter: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	cipherText, err := e.Encrypt(byt)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Could not encrypt ciphertext: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	serialized, err := cipherText.CompactSerialize()
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Could not serialize JWE: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	w.Write([]byte(serialized))
 }
 
 func (s *Server) handlePeerRegister(w http.ResponseWriter, r *http.Request) {
@@ -139,4 +172,31 @@ func (s *Server) handlePeerRegister(w http.ResponseWriter, r *http.Request) {
 	s.configMutex.Unlock()
 
 	s.saveConfig(w)
+
+	resp := api.NilResponse{}
+	byt, err := resp.Marshal()
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Could not marshal response: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	e, err := josekit.GetEncrypter(s.config.AuthKey)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Could not initialize encrypter: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	cipherText, err := e.Encrypt(byt)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Could not encrypt ciphertext: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	serialized, err := cipherText.CompactSerialize()
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Could not serialize JWE: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	w.Write([]byte(serialized))
 }

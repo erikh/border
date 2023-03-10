@@ -1,13 +1,12 @@
 package controlserver
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -16,6 +15,7 @@ import (
 
 	"github.com/erikh/border/pkg/api"
 	"github.com/erikh/border/pkg/config"
+	"github.com/erikh/border/pkg/controlclient"
 	"github.com/erikh/border/pkg/josekit"
 	"github.com/go-jose/go-jose/v3"
 )
@@ -36,6 +36,15 @@ func makeConfig(t *testing.T) config.Config {
 	})
 
 	return config.Config{FilenamePrefix: filepath.Join(dir, "config"), AuthKey: jwk}
+}
+
+func makeClient(addr net.Addr, authKey *jose.JSONWebKey) controlclient.Client {
+	u, _ := url.Parse(fmt.Sprintf("http://%s", addr))
+
+	return controlclient.Client{
+		AuthKey: authKey,
+		BaseURL: u,
+	}
 }
 
 func getNonce(server *Server) (*http.Response, error) {
@@ -66,75 +75,13 @@ func testHandler(t *testing.T, route, typ string, payload api.Message) *Server {
 		server.Shutdown(ctx)
 	})
 
-	resp, err := getNonce(server)
-	if err != nil {
+	client := makeClient(server.listener.Addr(), server.config.AuthKey)
+
+	var res api.NilResponse
+
+	if err := client.Exchange(route, payload, &res); err != nil {
 		t.Fatal(err)
 	}
-
-	if resp.StatusCode != http.StatusOK {
-		out, _ := io.ReadAll(resp.Body)
-		t.Fatalf("Nonce check failed: status code was not 200 was %d: error: %v", resp.StatusCode, string(out))
-	}
-
-	nonce, err := io.ReadAll(resp.Body)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	enc, err := jose.ParseEncrypted(string(nonce))
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	nonce, err = enc.Decrypt(server.config.AuthKey)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	payload.SetNonce(nonce)
-
-	encrypter, err := server.getEncrypter()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	buf, err := json.Marshal(payload)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	cipherText, err := encrypter.Encrypt(buf)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	out, err := cipherText.CompactSerialize()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-	defer cancel()
-
-	req, err := http.NewRequest("PUT", fmt.Sprintf("http://%s/%s", server.listener.Addr(), route), bytes.NewBuffer([]byte(out)))
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	resp, err = http.DefaultClient.Do(req.WithContext(ctx))
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		byt, err := io.ReadAll(resp.Body)
-		if err != nil {
-			t.Fatal(err)
-		}
-		t.Fatalf("Status was not OK after %s call, status was %v: %v", typ, resp.StatusCode, string(byt))
-	}
-
-	resp.Body.Close()
 
 	return server
 }
