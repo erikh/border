@@ -16,7 +16,7 @@ const (
 //
 // Honestly it kind of sucks, but no generics soooooo...
 type Record interface {
-	Convert() []dns.RR
+	Convert(name string) []dns.RR
 }
 
 type SOA struct {
@@ -29,10 +29,10 @@ type SOA struct {
 	Expire  uint32 `json:"expire"`
 }
 
-func (soa *SOA) Convert() []dns.RR {
+func (soa *SOA) Convert(name string) []dns.RR {
 	return []dns.RR{&dns.SOA{
 		Hdr: dns.RR_Header{
-			Name:   soa.Domain,
+			Name:   name,
 			Rrtype: dns.TypeSOA,
 			Class:  dns.ClassINET,
 			Ttl:    soa.MinTTL,
@@ -48,17 +48,16 @@ func (soa *SOA) Convert() []dns.RR {
 }
 
 type A struct {
-	Name      string   `json:"name"`
 	Addresses []net.IP `json:"addresses"`
 	TTL       uint32   `json:"ttl"`
 }
 
-func (a *A) Convert() []dns.RR {
+func (a *A) Convert(name string) []dns.RR {
 	ret := []dns.RR{}
 	for _, rec := range a.Addresses {
 		ret = append(ret, dns.RR(&dns.A{
 			Hdr: dns.RR_Header{
-				Name:   a.Name,
+				Name:   name,
 				Rrtype: dns.TypeA,
 				Class:  dns.ClassINET,
 				Ttl:    a.TTL,
@@ -75,12 +74,12 @@ type NS struct {
 	TTL     uint32   `json:"ttl"`
 }
 
-func (ns *NS) Convert() []dns.RR {
+func (ns *NS) Convert(name string) []dns.RR {
 	ret := []dns.RR{}
 	for _, rec := range ns.Servers {
 		ret = append(ret, dns.RR(&dns.NS{
 			Hdr: dns.RR_Header{
-				Name:   rec,
+				Name:   name,
 				Rrtype: dns.TypeNS,
 				Class:  dns.ClassINET,
 				Ttl:    ns.TTL,

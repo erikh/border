@@ -29,11 +29,10 @@ func TestStartShutdown(t *testing.T) {
 					Servers: []string{"test.home.arpa."},
 					TTL:     60,
 				},
-				Records: []config.Record{
+				Records: []*config.Record{
 					{
 						Name: "foo.test.home.arpa.",
 						Value: &dnsconfig.A{
-							Name:      "foo.test.home.arpa.",
 							Addresses: []net.IP{net.ParseIP("127.0.0.1")},
 							TTL:       60,
 						},

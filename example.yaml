@@ -31,14 +31,12 @@ zones:
       - type: A
         name: "test.home.arpa."
         value:
-          name: "test.home.arpa."
           addresses:
             - 127.0.0.1
           ttl: 60
       - type: A
         name: "foo.test.home.arpa."
         value:
-          name: "foo.test.home.arpa."
           addresses:
             - 127.0.0.1
             - 127.0.0.2

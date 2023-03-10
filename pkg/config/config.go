@@ -66,7 +66,6 @@ func (r *Record) ConvertLiteral() error {
 		}
 
 		r.Value = &dnsconfig.A{
-			Name:      r.LiteralValue["name"].(string),
 			Addresses: addresses,
 			TTL:       uint32(r.LiteralValue["ttl"].(float64)), // FIXME this is probably gonna bite me sooner or later
 		}

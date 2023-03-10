@@ -98,21 +98,22 @@ func (ds *DNSServer) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 		// question matters. DNS the specced protocol supports multiple questions,
 		// but most servers only honor the first one. So we are going to avoid
 		// caring about any others and save ourselves some trouble.
-		zone := ds.findZone(r.Question[0].Name)
+		name := r.Question[0].Name
+		zone := ds.findZone(name)
 
 		if zone != nil {
 			switch r.Question[0].Qtype {
 			// SOA and NS are special because they are special records.
 			case dns.TypeSOA:
-				answers = zone.SOA.Convert()
+				answers = zone.SOA.Convert(name)
 			case dns.TypeNS:
-				for _, ns := range zone.NS.Convert() {
+				for _, ns := range zone.NS.Convert(name) {
 					answers = append(answers, ns)
 				}
 			default:
 				for _, rec := range zone.Records {
-					if rec.Name == r.Question[0].Name {
-						for _, rec := range rec.Value.Convert() {
+					if rec.Name == name {
+						for _, rec := range rec.Value.Convert(name) {
 							answers = append(answers, rec)
 						}
 					}
