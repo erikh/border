@@ -2,8 +2,11 @@ package api
 
 import (
 	"encoding/json"
+	"fmt"
 
 	"github.com/erikh/border/pkg/config"
+	"github.com/erikh/border/pkg/josekit"
+	"github.com/go-jose/go-jose/v3"
 )
 
 type Message interface {
@@ -14,6 +17,30 @@ type Message interface {
 }
 
 type NilResponse struct{}
+
+func EncryptResponse(authKey *jose.JSONWebKey, response Message) ([]byte, error) {
+	byt, err := response.Marshal()
+	if err != nil {
+		return nil, fmt.Errorf("Could not marshal response: %w", err)
+	}
+
+	e, err := josekit.GetEncrypter(authKey)
+	if err != nil {
+		return nil, fmt.Errorf("Could not initialize encrypter: %w", err)
+	}
+
+	cipherText, err := e.Encrypt(byt)
+	if err != nil {
+		return nil, fmt.Errorf("Could not encrypt ciphertext: %w", err)
+	}
+
+	serialized, err := cipherText.CompactSerialize()
+	if err != nil {
+		return nil, fmt.Errorf("Could not serialize JWE: %w", err)
+	}
+
+	return []byte(serialized), nil
+}
 
 func (nr NilResponse) SetNonce(nonce []byte) {}
 
