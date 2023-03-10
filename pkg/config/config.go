@@ -73,7 +73,7 @@ func addDot(key string) string {
 }
 
 // Trim the trailing dot from zone records. Used in saving the configuration.
-func (c *Config) TrimZones() {
+func (c *Config) trimZones() {
 	newZones := map[string]Zone{}
 
 	for key, zone := range c.Zones {
@@ -99,7 +99,7 @@ func (c *Config) TrimZones() {
 }
 
 // Decorate zones with a trailing dot. Used in loading the configuration.
-func (c *Config) DecorateZones() {
+func (c *Config) decorateZones() {
 	newZones := map[string]Zone{}
 
 	for key, zone := range c.Zones {
@@ -124,7 +124,7 @@ func (c *Config) DecorateZones() {
 	c.Zones = newZones
 }
 
-func (z *Zone) ConvertLiteral() error {
+func (z *Zone) convertLiteral() error {
 	if z.NS.TTL == 0 {
 		z.NS.TTL = z.SOA.MinTTL
 	}
@@ -209,12 +209,12 @@ func (c Config) Save() error {
 }
 
 func (c *Config) SaveJSON() ([]byte, error) {
-	c.TrimZones()
+	c.trimZones()
 	return json.MarshalIndent(c, "", "  ")
 }
 
 func (c *Config) SaveYAML() ([]byte, error) {
-	c.TrimZones()
+	c.trimZones()
 	return yaml.Marshal(c)
 }
 
@@ -260,10 +260,10 @@ func FromDisk(filename string, loaderFunc LoaderFunc) (Config, error) {
 	}
 
 	for _, zone := range c.Zones {
-		zone.ConvertLiteral()
+		zone.convertLiteral()
 	}
 
-	c.DecorateZones()
+	c.decorateZones()
 
 	return c, nil
 }
