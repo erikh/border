@@ -38,6 +38,10 @@ type Server struct {
 // see a better way to do this with net/http since there is not a notifier
 // callback. Would prefer a better way to launch the server without blocking.
 func Start(config config.Config, listenSpec string, expireTime, bootWait time.Duration) (*Server, error) {
+	if config.AuthKey == nil || !config.AuthKey.Valid() {
+		return nil, errors.New("You must provide an auth_key to start the server")
+	}
+
 	errChan := make(chan error, 1)
 
 	ctx, cancel := context.WithCancel(context.Background())
