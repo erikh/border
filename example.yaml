@@ -14,10 +14,10 @@ auth_key:
   kid: control
   kty: oct
 zones:
-  test.home.arpa.:
+  test.home.arpa:
     soa:
-      domain: test.home.arpa.
-      admin: administrator.test.home.arpa.
+      domain: test.home.arpa
+      admin: administrator.test.home.arpa
       minttl: 60
       serial: 1
       refresh: 60
@@ -25,17 +25,17 @@ zones:
       expire: 120
     ns:
       servers:
-        - test.home.arpa.
+        - test.home.arpa
       ttl: 60
     records:
       - type: A
-        name: "test.home.arpa."
+        name: "test.home.arpa"
         value:
           addresses:
             - 127.0.0.1
           ttl: 60
       - type: A
-        name: "foo.test.home.arpa."
+        name: "foo.test.home.arpa"
         value:
           addresses:
             - 127.0.0.1

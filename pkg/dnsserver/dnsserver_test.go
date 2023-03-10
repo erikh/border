@@ -101,7 +101,7 @@ func TestStartShutdown(t *testing.T) {
 		}
 
 		if len(r.Answer) != 1 {
-			t.Fatalf("Invalid number of Ns answers in query to %q DNS service", typ)
+			t.Fatalf("Invalid number of answers in query to %q DNS service", typ)
 		}
 
 		soa, ok := r.Answer[0].(*dns.SOA)

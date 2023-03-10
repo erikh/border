@@ -7,6 +7,7 @@ import (
 	"io"
 	"net"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -53,6 +54,64 @@ type Record struct {
 	Name         string           `json:"name"`
 	LiteralValue map[string]any   `json:"value"`
 	Value        dnsconfig.Record `json:"-"`
+}
+
+func trimDot(key string) string {
+	if strings.HasSuffix(key, ".") {
+		key = strings.TrimSuffix(key, ".")
+	}
+
+	return key
+}
+
+func addDot(key string) string {
+	if !strings.HasSuffix(key, ".") {
+		key += "."
+	}
+
+	return key
+}
+
+func (c *Config) TrimZones() {
+	newZones := map[string]Zone{}
+
+	for key, zone := range c.Zones {
+		zone.SOA.Domain = trimDot(zone.SOA.Domain)
+		zone.SOA.Admin = trimDot(zone.SOA.Admin)
+
+		newServers := []string{}
+
+		for _, server := range zone.NS.Servers {
+			newServers = append(newServers, trimDot(server))
+		}
+
+		zone.NS.Servers = newServers
+
+		newZones[trimDot(key)] = zone
+	}
+
+	c.Zones = newZones
+}
+
+func (c *Config) DecorateZones() {
+	newZones := map[string]Zone{}
+
+	for key, zone := range c.Zones {
+		zone.SOA.Domain = addDot(zone.SOA.Domain)
+		zone.SOA.Admin = addDot(zone.SOA.Admin)
+
+		newServers := []string{}
+
+		for _, server := range zone.NS.Servers {
+			newServers = append(newServers, addDot(server))
+		}
+
+		zone.NS.Servers = newServers
+
+		newZones[addDot(key)] = zone
+	}
+
+	c.Zones = newZones
 }
 
 func (r *Record) ConvertLiteral() error {
@@ -120,11 +179,13 @@ func (c Config) Save() error {
 	return nil
 }
 
-func (c Config) SaveJSON() ([]byte, error) {
+func (c *Config) SaveJSON() ([]byte, error) {
+	c.TrimZones()
 	return json.MarshalIndent(c, "", "  ")
 }
 
-func (c Config) SaveYAML() ([]byte, error) {
+func (c *Config) SaveYAML() ([]byte, error) {
+	c.TrimZones()
 	return yaml.Marshal(c)
 }
 
@@ -176,6 +237,8 @@ func FromDisk(filename string, loaderFunc LoaderFunc) (Config, error) {
 			}
 		}
 	}
+
+	c.DecorateZones()
 
 	return c, nil
 }
