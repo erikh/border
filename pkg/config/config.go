@@ -88,6 +88,10 @@ func (c *Config) TrimZones() {
 
 		zone.NS.Servers = newServers
 
+		for _, record := range zone.Records {
+			record.Name = addDot(record.Name)
+		}
+
 		newZones[trimDot(key)] = zone
 	}
 
@@ -110,28 +114,51 @@ func (c *Config) DecorateZones() {
 
 		zone.NS.Servers = newServers
 
+		for _, record := range zone.Records {
+			record.Name = addDot(record.Name)
+		}
+
 		newZones[addDot(key)] = zone
 	}
 
 	c.Zones = newZones
 }
 
-func (r *Record) ConvertLiteral() error {
-	// FIXME error handling for type parsing
-	switch r.Type {
-	case dnsconfig.TypeA:
-		addresses := []net.IP{}
+func (z *Zone) ConvertLiteral() error {
+	if z.NS.TTL == 0 {
+		z.NS.TTL = z.SOA.MinTTL
+	}
 
-		for _, addr := range r.LiteralValue["addresses"].([]any) {
-			addresses = append(addresses, net.ParseIP(addr.(string)))
-		}
+	for _, r := range z.Records {
+		switch r.Type {
+		case dnsconfig.TypeA:
+			orig, ok := r.LiteralValue["addresses"]
+			if !ok || len(orig.([]any)) == 0 {
+				return fmt.Errorf("No addresses for %q A record", r.Name)
+			}
 
-		r.Value = &dnsconfig.A{
-			Addresses: addresses,
-			TTL:       uint32(r.LiteralValue["ttl"].(float64)), // FIXME this is probably gonna bite me sooner or later
+			addresses := []net.IP{}
+
+			for _, addr := range r.LiteralValue["addresses"].([]any) {
+				addresses = append(addresses, net.ParseIP(addr.(string)))
+			}
+
+			var ttl uint32
+			origTTL, ok := r.LiteralValue["ttl"]
+
+			if ok {
+				ttl = uint32(origTTL.(float64))
+			} else {
+				ttl = z.SOA.MinTTL
+			}
+
+			r.Value = &dnsconfig.A{
+				Addresses: addresses,
+				TTL:       ttl,
+			}
+		default:
+			return fmt.Errorf("invalid type for record %q", r.Name)
 		}
-	default:
-		return errors.New("invalid type")
 	}
 
 	return nil
@@ -233,11 +260,7 @@ func FromDisk(filename string, loaderFunc LoaderFunc) (Config, error) {
 	}
 
 	for _, zone := range c.Zones {
-		for _, record := range zone.Records {
-			if err := record.ConvertLiteral(); err != nil {
-				return c, err
-			}
-		}
+		zone.ConvertLiteral()
 	}
 
 	c.DecorateZones()
