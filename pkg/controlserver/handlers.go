@@ -80,7 +80,7 @@ func (s *Server) handlePut(r *http.Request) ([]byte, error) {
 	return o.Decrypt(s.config.AuthKey)
 }
 
-func (s *Server) handleValidateNonce(r *http.Request, t api.NonceRequired) (int, error) {
+func (s *Server) handleValidateNonce(r *http.Request, t api.Message) (int, error) {
 	byt, err := s.handlePut(r)
 	if err != nil {
 		return http.StatusInternalServerError, fmt.Errorf("Invalid Request: %w", err)

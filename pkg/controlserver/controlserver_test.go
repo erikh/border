@@ -55,7 +55,7 @@ func authCheck(server *Server, body io.Reader) (*http.Response, error) {
 	return http.DefaultClient.Do(req.WithContext(ctx))
 }
 
-func testHandler(t *testing.T, route, typ string, payload api.NonceRequired) *Server {
+func testHandler(t *testing.T, route, typ string, payload api.Message) *Server {
 	server, err := Start(makeConfig(t), ":0", 10*time.Millisecond, 10*time.Millisecond)
 	if err != nil {
 		t.Fatal(err)

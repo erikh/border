@@ -6,7 +6,7 @@ import (
 	"github.com/erikh/border/pkg/config"
 )
 
-type NonceRequired interface {
+type Message interface {
 	Unmarshal([]byte) error
 	Nonce() string
 	SetNonce([]byte)
