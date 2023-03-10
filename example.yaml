@@ -1,6 +1,11 @@
+# if you load this file wholesale, here are a few commands to try:
+# dig -p 5300 -t soa test.home.arpa. @localhost
+# dig -p 5300 -t ns test.home.arpa. @localhost
+# dig -p 5300 -t a test.home.arpa. @localhost
+# dig -p 5300 -t a foo.test.home.arpa. @localhost
 listen:
   control: :5309
-  dns: :5353
+  dns: :5300
 # generate this key with `border keygenerate` and paste it in. This is an
 # encryption and signing key. Do not use the default!
 auth_key:
@@ -8,3 +13,33 @@ auth_key:
   k: VbqOkBfoftuqk7_qzQse70AUScQJJGiR4JUfv-jHGIA
   kid: control
   kty: oct
+zones:
+  test.home.arpa.:
+    soa:
+      domain: test.home.arpa.
+      admin: administrator.test.home.arpa.
+      minttl: 60
+      serial: 1
+      refresh: 60
+      retry: 1
+      expire: 120
+    ns:
+      servers:
+        - test.home.arpa.
+      ttl: 60
+    records:
+      - type: A
+        name: "test.home.arpa."
+        value:
+          name: "test.home.arpa."
+          addresses:
+            - 127.0.0.1
+          ttl: 60
+      - type: A
+        name: "foo.test.home.arpa."
+        value:
+          name: "foo.test.home.arpa."
+          addresses:
+            - 127.0.0.1
+            - 127.0.0.2
+          ttl: 60

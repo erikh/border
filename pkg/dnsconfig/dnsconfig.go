@@ -6,6 +6,10 @@ import (
 	"github.com/miekg/dns"
 )
 
+const (
+	TypeA = "A"
+)
+
 // An attempt to normalize record management so it can be addressed in a
 // generic way in the server. Convert() turns it into a []dns.RR in all
 // cases, required for different record types to be implemented manually.

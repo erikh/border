@@ -45,12 +45,36 @@ type Peer struct {
 type Zone struct {
 	SOA     dnsconfig.SOA `json:"soa"`
 	NS      dnsconfig.NS  `json:"ns"`
-	Records []Record      `json:"records"`
+	Records []*Record     `json:"records"`
 }
 
 type Record struct {
-	Name  string           `json:"name"`
-	Value dnsconfig.Record `json:"value"`
+	Type         string           `json:"type"`
+	Name         string           `json:"name"`
+	LiteralValue map[string]any   `json:"value"`
+	Value        dnsconfig.Record `json:"-"`
+}
+
+func (r *Record) ConvertLiteral() error {
+	// FIXME error handling for type parsing
+	switch r.Type {
+	case dnsconfig.TypeA:
+		addresses := []net.IP{}
+
+		for _, addr := range r.LiteralValue["addresses"].([]any) {
+			addresses = append(addresses, net.ParseIP(addr.(string)))
+		}
+
+		r.Value = &dnsconfig.A{
+			Name:      r.LiteralValue["name"].(string),
+			Addresses: addresses,
+			TTL:       uint32(r.LiteralValue["ttl"].(float64)), // FIXME this is probably gonna bite me sooner or later
+		}
+	default:
+		return errors.New("invalid type")
+	}
+
+	return nil
 }
 
 func LoadJSON(data []byte) (Config, error) {
@@ -144,6 +168,14 @@ func FromDisk(filename string, loaderFunc LoaderFunc) (Config, error) {
 	c, err = loaderFunc(b)
 	if err != nil {
 		return c, errors.Join(ErrLoad, err)
+	}
+
+	for _, zone := range c.Zones {
+		for _, record := range zone.Records {
+			if err := record.ConvertLiteral(); err != nil {
+				return c, err
+			}
+		}
 	}
 
 	return c, nil

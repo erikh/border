@@ -10,6 +10,7 @@ import (
 
 	"github.com/erikh/border/pkg/config"
 	"github.com/erikh/border/pkg/controlserver"
+	"github.com/erikh/border/pkg/dnsserver"
 	"github.com/erikh/border/pkg/josekit"
 	"github.com/ghodss/yaml"
 	"github.com/peterbourgon/ff/ffcli"
@@ -87,6 +88,14 @@ func serve(args []string) error {
 		return err
 	}
 
+	dnsserver := dnsserver.DNSServer{
+		Zones: c.Zones,
+	}
+
+	if err := dnsserver.Start(c.Listen.DNS); err != nil {
+		return err
+	}
+
 	sigChan := make(chan os.Signal, 1)
 	outerContext, outerCancel := context.WithCancel(context.Background())
 
@@ -102,6 +111,7 @@ func serve(args []string) error {
 		defer cancel()
 		defer outerCancel()
 
+		dnsserver.Shutdown()
 		cs.Shutdown(ctx)
 	}()
 
