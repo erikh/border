@@ -2,14 +2,13 @@ package controlserver
 
 import (
 	"crypto/rand"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"time"
 
-	"github.com/erikh/border/pkg/config"
+	"github.com/erikh/border/pkg/api"
 	"github.com/go-jose/go-jose/v3"
 )
 
@@ -81,28 +80,7 @@ func (s *Server) handlePut(r *http.Request) ([]byte, error) {
 	return o.Decrypt(s.config.AuthKey)
 }
 
-type NonceRequired interface {
-	Unmarshal([]byte) error
-	Nonce() string
-	SetNonce([]byte)
-}
-
-type AuthCheck []byte
-
-func (ac AuthCheck) Unmarshal(byt []byte) error {
-	copy(ac, byt)
-	return nil
-}
-
-func (ac AuthCheck) Nonce() string {
-	return string(ac)
-}
-
-func (ac AuthCheck) SetNonce(nonce []byte) {
-	ac.Unmarshal(nonce)
-}
-
-func (s *Server) handleValidateNonce(r *http.Request, t NonceRequired) (int, error) {
+func (s *Server) handleValidateNonce(r *http.Request, t api.NonceRequired) (int, error) {
 	byt, err := s.handlePut(r)
 	if err != nil {
 		return http.StatusInternalServerError, fmt.Errorf("Invalid Request: %w", err)
@@ -120,7 +98,7 @@ func (s *Server) handleValidateNonce(r *http.Request, t NonceRequired) (int, err
 }
 
 func (s *Server) handleAuthCheck(w http.ResponseWriter, r *http.Request) {
-	nonce := make(AuthCheck, nonceSize)
+	nonce := make(api.AuthCheck, nonceSize)
 
 	if code, err := s.handleValidateNonce(r, nonce); err != nil {
 		http.Error(w, fmt.Sprintf("Nonce validation failed: %v", err), code)
@@ -130,25 +108,8 @@ func (s *Server) handleAuthCheck(w http.ResponseWriter, r *http.Request) {
 	// Authenticated!
 }
 
-type ConfigUpdateRequest struct {
-	NonceValue []byte        `json:"nonce"`
-	Config     config.Config `json:"config"`
-}
-
-func (cur *ConfigUpdateRequest) Unmarshal(byt []byte) error {
-	return json.Unmarshal(byt, cur)
-}
-
-func (cur *ConfigUpdateRequest) Nonce() string {
-	return string(cur.NonceValue)
-}
-
-func (cur *ConfigUpdateRequest) SetNonce(nonce []byte) {
-	cur.NonceValue = nonce
-}
-
 func (s *Server) handleConfigUpdate(w http.ResponseWriter, r *http.Request) {
-	var c ConfigUpdateRequest
+	var c api.ConfigUpdateRequest
 
 	if code, err := s.handleValidateNonce(r, &c); err != nil {
 		http.Error(w, fmt.Sprintf("Nonce validation failed: %v", err), code)
@@ -165,25 +126,8 @@ func (s *Server) handleConfigUpdate(w http.ResponseWriter, r *http.Request) {
 	s.saveConfig(w)
 }
 
-type PeerRegistrationRequest struct {
-	NonceValue []byte      `json:"nonce"`
-	Peer       config.Peer `json:"peer"`
-}
-
-func (peer *PeerRegistrationRequest) Unmarshal(byt []byte) error {
-	return json.Unmarshal(byt, peer)
-}
-
-func (peer *PeerRegistrationRequest) Nonce() string {
-	return string(peer.NonceValue)
-}
-
-func (peer *PeerRegistrationRequest) SetNonce(nonce []byte) {
-	peer.NonceValue = nonce
-}
-
 func (s *Server) handlePeerRegister(w http.ResponseWriter, r *http.Request) {
-	var peerRequest PeerRegistrationRequest
+	var peerRequest api.PeerRegistrationRequest
 
 	if code, err := s.handleValidateNonce(r, &peerRequest); err != nil {
 		http.Error(w, fmt.Sprintf("Nonce validation failed: %v", err), code)
