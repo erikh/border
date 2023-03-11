@@ -2,17 +2,22 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
+	"net"
 	"os"
 	"os/signal"
 	"time"
 
+	"github.com/erikh/border/pkg/api"
 	"github.com/erikh/border/pkg/config"
+	"github.com/erikh/border/pkg/controlclient"
 	"github.com/erikh/border/pkg/controlserver"
 	"github.com/erikh/border/pkg/dnsserver"
 	"github.com/erikh/border/pkg/josekit"
 	"github.com/ghodss/yaml"
+	"github.com/go-jose/go-jose/v3"
 	"github.com/peterbourgon/ff/ffcli"
 	"golang.org/x/sys/unix"
 )
@@ -23,6 +28,7 @@ var (
 	clientFlagSet      = flag.NewFlagSet("border client", flag.ExitOnError)
 	keyGenerateFlagSet = flag.NewFlagSet("border keygenerate", flag.ExitOnError)
 	configFile         = appFlagSet.String("c", "/etc/border/config.yaml", "configuration file path")
+	clientConfigFile   = appFlagSet.String("client", "/etc/border/client.yaml", "client configuration file path")
 	keyID              = keyGenerateFlagSet.String("id", "control", "key ID (kid) of JSON Web Key")
 )
 
@@ -33,26 +39,26 @@ func main() {
 		Subcommands: []*ffcli.Command{
 			{
 				Name:      "serve",
-				Usage:     "Start the border service",
+				Usage:     "border serve",
 				ShortHelp: "Start the border service",
 				FlagSet:   serveFlagSet,
 				Exec:      serve,
 			},
 			{
 				Name:      "client",
-				Usage:     "Talk to the border service",
+				Usage:     "border client --help",
 				ShortHelp: "Talk to the border service",
 				FlagSet:   clientFlagSet,
 				Subcommands: []*ffcli.Command{
 					{
 						Name:      "addpeer",
-						Usage:     "Add a peer to the quorum",
-						ShortHelp: "Add a peer to the quorum",
+						Usage:     "border client addpeer <ip> <YAML JWK keyfile>",
+						ShortHelp: "Add a peer to the quorum. Use keygenerate to generate a keyfile.",
 						Exec:      clientAddPeer,
 					},
 					{
 						Name:      "updateconfig",
-						Usage:     "Update the configuration remotely",
+						Usage:     "border client updateconfig <config file>",
 						ShortHelp: "Update the configuration remotely",
 						Exec:      clientUpdateConfig,
 					},
@@ -60,7 +66,7 @@ func main() {
 			},
 			{
 				Name:      "keygenerate",
-				Usage:     "Generate a new authentication key for use in border",
+				Usage:     "border keygenerate",
 				ShortHelp: "Generate a new authentication key for use in border",
 				FlagSet:   keyGenerateFlagSet,
 				Exec:      keyGenerate,
@@ -127,8 +133,42 @@ func serve(args []string) error {
 }
 
 func clientAddPeer(args []string) error {
-	fmt.Println(*configFile)
-	return nil
+	client, err := controlclient.Load(*clientConfigFile)
+	if err != nil {
+		return fmt.Errorf("Could not load client configuration at %q: %w", *clientConfigFile, err)
+	}
+
+	if len(args) != 2 {
+		return errors.New("Please provide a peer IP and key file")
+	}
+
+	var jwk jose.JSONWebKey
+
+	ip := net.ParseIP(args[0])
+	if ip == nil {
+		return fmt.Errorf("IP %q is not a valid IP address", args[0])
+	}
+
+	byt, err := os.ReadFile(args[1])
+	if err != nil {
+		return fmt.Errorf("Could not read key file: %w", err)
+	}
+
+	if err := yaml.Unmarshal(byt, &jwk); err != nil {
+		return fmt.Errorf("Could not unmarshal JWK YAML: %w", err)
+	}
+
+	peer := config.Peer{
+		Key: &jwk,
+		IP:  ip,
+	}
+
+	req := &api.PeerRegistrationRequest{
+		Peer: peer,
+	}
+
+	resp := api.NilResponse{}
+	return client.Exchange("/peerRegister", req, &resp)
 }
 
 func clientUpdateConfig(args []string) error {

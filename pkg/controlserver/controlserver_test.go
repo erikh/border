@@ -6,7 +6,6 @@ import (
 	"io"
 	"net"
 	"net/http"
-	"net/url"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -39,11 +38,9 @@ func makeConfig(t *testing.T) config.Config {
 }
 
 func makeClient(addr net.Addr, authKey *jose.JSONWebKey) controlclient.Client {
-	u, _ := url.Parse(fmt.Sprintf("http://%s", addr))
-
 	return controlclient.Client{
 		AuthKey: authKey,
-		BaseURL: u,
+		BaseURL: fmt.Sprintf("http://%s", addr),
 	}
 }
 

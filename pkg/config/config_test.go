@@ -46,6 +46,8 @@ func TestMarshal(t *testing.T) {
 		os.RemoveAll(dir)
 	})
 
+	c.FilenamePrefix = path.Join(dir, "config")
+
 	p := path.Join(dir, "config.json")
 
 	if err := ToDisk(p, c.SaveJSON); err != nil {

@@ -7,6 +7,7 @@ import (
 	"io"
 	"net"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -89,7 +90,7 @@ func (c *Config) trimZones() {
 		zone.NS.Servers = newServers
 
 		for _, record := range zone.Records {
-			record.Name = addDot(record.Name)
+			record.Name = trimDot(record.Name)
 		}
 
 		newZones[trimDot(key)] = zone
@@ -258,6 +259,9 @@ func FromDisk(filename string, loaderFunc LoaderFunc) (Config, error) {
 	if err != nil {
 		return c, errors.Join(ErrLoad, err)
 	}
+
+	// I'm going to hell for this
+	c.FilenamePrefix = strings.TrimSuffix(filename, filepath.Ext(filename))
 
 	for _, zone := range c.Zones {
 		zone.convertLiteral()

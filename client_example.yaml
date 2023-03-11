@@ -1,0 +1,11 @@
+# NOTE this file is meant to be, by default, used in conjuction with
+# example.yaml. It likely won't work for "real" needs.
+#
+# generate this key with `border keygenerate` and paste it in. This is an
+# encryption and signing key. Do not use the default!
+auth_key:
+  alg: A256KW
+  k: VbqOkBfoftuqk7_qzQse70AUScQJJGiR4JUfv-jHGIA
+  kid: control
+  kty: oct
+base_url: http://localhost:5309

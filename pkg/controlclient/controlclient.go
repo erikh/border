@@ -9,10 +9,12 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"os"
 	"time"
 
 	"github.com/erikh/border/pkg/api"
 	"github.com/erikh/border/pkg/josekit"
+	"github.com/ghodss/yaml"
 	"github.com/go-jose/go-jose/v3"
 )
 
@@ -25,12 +27,32 @@ var (
 )
 
 type Client struct {
-	AuthKey *jose.JSONWebKey `json:"key"`
-	BaseURL *url.URL         `json:"base_url"`
+	AuthKey *jose.JSONWebKey `json:"auth_key"`
+	BaseURL string           `json:"base_url"`
+}
+
+func Load(filename string) (*Client, error) {
+	byt, err := os.ReadFile(filename)
+	if err != nil {
+		return nil, fmt.Errorf("Could not read client configuration: %w", err)
+	}
+
+	var c Client
+
+	if err := yaml.Unmarshal(byt, &c); err != nil {
+		return nil, fmt.Errorf("Could not unmarshal client configuration: %w", err)
+	}
+
+	return &c, nil
 }
 
 func (c *Client) Exchange(endpoint string, msg api.Message, res api.Message) error {
-	u := c.BaseURL.JoinPath("/nonce")
+	baseurl, err := url.Parse(c.BaseURL)
+	if err != nil {
+		return fmt.Errorf("Base URL %q is invalid: %w", c.BaseURL, err)
+	}
+
+	u := baseurl.JoinPath("/nonce")
 	resp, err := http.Get(u.String())
 	if err != nil {
 		return errors.Join(ErrAcquireNonce, err)
@@ -85,7 +107,7 @@ func (c *Client) Exchange(endpoint string, msg api.Message, res api.Message) err
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 
-	u = c.BaseURL.JoinPath(endpoint)
+	u = baseurl.JoinPath(endpoint)
 
 	req, err := http.NewRequest("PUT", u.String(), bytes.NewBuffer([]byte(out)))
 	if err != nil {
