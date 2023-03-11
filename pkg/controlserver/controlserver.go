@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/erikh/border/pkg/api"
 	"github.com/erikh/border/pkg/config"
 )
 
@@ -110,10 +111,10 @@ func (s *Server) expireNonces(ctx context.Context) {
 
 func (s *Server) configureMux() *http.ServeMux {
 	mux := http.NewServeMux()
-	mux.HandleFunc("/nonce", s.handleNonce)
-	mux.HandleFunc("/authCheck", s.handleAuthCheck)
-	mux.HandleFunc("/configUpdate", s.handleConfigUpdate)
-	mux.HandleFunc("/peerRegister", s.handlePeerRegister)
+	mux.HandleFunc("/"+api.PathNonce, s.handleNonce)
+	mux.HandleFunc("/"+api.PathAuthCheck, s.handleAuthCheck)
+	mux.HandleFunc("/"+api.PathConfigUpdate, s.handleConfigUpdate)
+	mux.HandleFunc("/"+api.PathPeerRegistration, s.handlePeerRegister)
 	return mux
 }
 

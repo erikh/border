@@ -1,11 +1,15 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"net"
+	"net/http"
+	"net/url"
 	"os"
 	"os/signal"
 	"time"
@@ -50,6 +54,12 @@ func main() {
 				ShortHelp: "Talk to the border service",
 				FlagSet:   clientFlagSet,
 				Subcommands: []*ffcli.Command{
+					{
+						Name:      "authcheck",
+						Usage:     "border client authcheck",
+						ShortHelp: "Validates that auth is working without doing anything else",
+						Exec:      clientAuthCheck,
+					},
 					{
 						Name:      "addpeer",
 						Usage:     "border client addpeer <ip> <YAML JWK keyfile>",
@@ -132,6 +142,65 @@ func serve(args []string) error {
 	return nil
 }
 
+func clientAuthCheck(args []string) error {
+	client, err := controlclient.Load(*clientConfigFile)
+	if err != nil {
+		return fmt.Errorf("Could not load client configuration at %q: %w", *clientConfigFile, err)
+	}
+
+	baseurl, err := url.Parse(client.BaseURL)
+	if err != nil {
+		return fmt.Errorf("Invalid BaseURL %q: %w", client.BaseURL, err)
+	}
+
+	nonce, err := client.GetNonce()
+	if err != nil {
+		return fmt.Errorf("Could not retrieve nonce: %w", err)
+	}
+
+	// FIXME remove this cut & paste job
+	u := baseurl.JoinPath("/" + api.PathAuthCheck)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+
+	encrypter, err := josekit.GetEncrypter(client.AuthKey)
+	if err != nil {
+		return errors.Join(controlclient.ErrEncrypt, err)
+	}
+
+	cipherText, err := encrypter.Encrypt(nonce)
+	if err != nil {
+		return errors.Join(controlclient.ErrEncrypt, err)
+	}
+
+	out, err := cipherText.CompactSerialize()
+	if err != nil {
+		return errors.Join(controlclient.ErrEncrypt, err)
+	}
+
+	req, err := http.NewRequest("PUT", u.String(), bytes.NewBuffer([]byte(out)))
+	if err != nil {
+		return err
+	}
+
+	resp, err := http.DefaultClient.Do(req.WithContext(ctx))
+	if err != nil {
+		return errors.Join(controlclient.ErrBadResponse, err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		byt, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return errors.Join(controlclient.ErrBadResponse, err)
+		}
+
+		return fmt.Errorf("Status was not OK after auth check, status was %v: %v", resp.StatusCode, string(byt))
+	}
+
+	fmt.Println("OK")
+	return nil
+}
+
 func clientAddPeer(args []string) error {
 	client, err := controlclient.Load(*clientConfigFile)
 	if err != nil {
@@ -168,7 +237,7 @@ func clientAddPeer(args []string) error {
 	}
 
 	resp := api.NilResponse{}
-	return client.Exchange("/peerRegister", req, &resp)
+	return client.Exchange(api.PathPeerRegistration, req, &resp)
 }
 
 func clientUpdateConfig(args []string) error {

@@ -46,40 +46,54 @@ func Load(filename string) (*Client, error) {
 	return &c, nil
 }
 
+func (c *Client) GetNonce() ([]byte, error) {
+	baseurl, err := url.Parse(c.BaseURL)
+	if err != nil {
+		return nil, fmt.Errorf("Base URL %q is invalid: %w", c.BaseURL, err)
+	}
+
+	u := baseurl.JoinPath("/" + api.PathNonce)
+	resp, err := http.Get(u.String())
+	if err != nil {
+		return nil, errors.Join(ErrAcquireNonce, err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		byt, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return nil, errors.Join(ErrAcquireNonce, err)
+		}
+
+		return nil, fmt.Errorf("Status was not OK after nonce call, status was %v: %v", resp.StatusCode, string(byt))
+	}
+
+	nonce, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, errors.Join(ErrAcquireNonce, err)
+	}
+
+	enc, err := jose.ParseEncrypted(string(nonce))
+	if err != nil {
+		return nil, errors.Join(ErrDecrypt, err)
+	}
+
+	nonce, err = enc.Decrypt(c.AuthKey)
+	if err != nil {
+		return nil, errors.Join(ErrDecrypt, err)
+	}
+
+	return nonce, nil
+}
+
 func (c *Client) Exchange(endpoint string, msg api.Message, res api.Message) error {
 	baseurl, err := url.Parse(c.BaseURL)
 	if err != nil {
 		return fmt.Errorf("Base URL %q is invalid: %w", c.BaseURL, err)
 	}
 
-	u := baseurl.JoinPath("/nonce")
-	resp, err := http.Get(u.String())
+	nonce, err := c.GetNonce()
 	if err != nil {
-		return errors.Join(ErrAcquireNonce, err)
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		byt, err := io.ReadAll(resp.Body)
-		if err != nil {
-			return errors.Join(ErrAcquireNonce, err)
-		}
-
-		return fmt.Errorf("Status was not OK after nonce call, status was %v: %v", resp.StatusCode, string(byt))
-	}
-
-	nonce, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return errors.Join(ErrAcquireNonce, err)
-	}
-
-	enc, err := jose.ParseEncrypted(string(nonce))
-	if err != nil {
-		return errors.Join(ErrDecrypt, err)
-	}
-
-	nonce, err = enc.Decrypt(c.AuthKey)
-	if err != nil {
-		return errors.Join(ErrDecrypt, err)
+		return fmt.Errorf("Failed to retrieve nonce: %w", err)
 	}
 
 	msg.SetNonce(nonce)
@@ -107,14 +121,14 @@ func (c *Client) Exchange(endpoint string, msg api.Message, res api.Message) err
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 
-	u = baseurl.JoinPath(endpoint)
+	u := baseurl.JoinPath("/" + endpoint)
 
 	req, err := http.NewRequest("PUT", u.String(), bytes.NewBuffer([]byte(out)))
 	if err != nil {
 		return err
 	}
 
-	resp, err = http.DefaultClient.Do(req.WithContext(ctx))
+	resp, err := http.DefaultClient.Do(req.WithContext(ctx))
 	if err != nil {
 		return errors.Join(ErrBadResponse, err)
 	}
@@ -133,7 +147,7 @@ func (c *Client) Exchange(endpoint string, msg api.Message, res api.Message) err
 		return errors.Join(ErrBadResponse, err)
 	}
 
-	enc, err = jose.ParseEncrypted(string(byt))
+	enc, err := jose.ParseEncrypted(string(byt))
 	if err != nil {
 		return errors.Join(ErrDecrypt, err)
 	}

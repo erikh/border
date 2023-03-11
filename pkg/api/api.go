@@ -9,6 +9,13 @@ import (
 	"github.com/go-jose/go-jose/v3"
 )
 
+const (
+	PathNonce            = "nonce"
+	PathAuthCheck        = "authCheck"
+	PathPeerRegistration = "peerRegister"
+	PathConfigUpdate     = "configUpdate"
+)
+
 type Message interface {
 	Unmarshal([]byte) error
 	SetNonce([]byte)

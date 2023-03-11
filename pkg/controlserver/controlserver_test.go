@@ -45,7 +45,7 @@ func makeClient(addr net.Addr, authKey *jose.JSONWebKey) controlclient.Client {
 }
 
 func getNonce(server *Server) (*http.Response, error) {
-	url := fmt.Sprintf("http://%s/nonce", server.listener.Addr())
+	url := fmt.Sprintf("http://%s/%s", server.listener.Addr(), api.PathNonce)
 	return http.Get(url)
 }
 
@@ -53,7 +53,7 @@ func authCheck(server *Server, body io.Reader) (*http.Response, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 
-	req, err := http.NewRequest("PUT", fmt.Sprintf("http://%s/authCheck", server.listener.Addr()), body)
+	req, err := http.NewRequest("PUT", fmt.Sprintf("http://%s/%s", server.listener.Addr(), api.PathAuthCheck), body)
 	if err != nil {
 		return nil, err
 	}
@@ -183,7 +183,7 @@ func TestConfigUpdate(t *testing.T) {
 
 	server := testHandler(
 		t,
-		"configUpdate",
+		api.PathConfigUpdate,
 		"update configuration",
 		&api.ConfigUpdateRequest{Config: config},
 	)
@@ -206,7 +206,7 @@ func TestPeerRegistration(t *testing.T) {
 
 	server := testHandler(
 		t,
-		"peerRegister",
+		api.PathPeerRegistration,
 		"peer registration",
 		&api.PeerRegistrationRequest{Peer: peer},
 	)
