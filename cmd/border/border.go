@@ -203,9 +203,7 @@ func clientUpdateConfig(args []string) error {
 		return errors.New("Please provide a config file to load")
 	}
 
-	configFile := args[0]
-
-	c, err := config.FromDisk(configFile, config.LoadYAML)
+	c, err := config.FromDisk(args[0], config.LoadYAML)
 	if err != nil {
 		return err
 	}
