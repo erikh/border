@@ -210,8 +210,12 @@ func clientUpdateConfig(args []string) error {
 		return err
 	}
 
-	req := api.ConfigUpdateRequest{Config: c}
-	return client.Exchange(api.PathConfigUpdate, &req, &api.NilResponse{})
+	if err := client.Exchange(api.PathConfigUpdate, &api.ConfigUpdateRequest{Config: c}, &api.NilResponse{}); err != nil {
+		return fmt.Errorf("Error updating configuration: %w", err)
+	}
+
+	fmt.Println("OK")
+	return nil
 }
 
 func keyGenerate(args []string) error {
