@@ -14,7 +14,7 @@ import (
 )
 
 const (
-	nonceSize       = 128
+	NonceSize       = 128
 	NonceExpiration = 30 * time.Second // passed in to the Start() function, to make tests easier
 )
 

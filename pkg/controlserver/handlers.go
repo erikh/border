@@ -15,14 +15,14 @@ import (
 // encrypts a nonce with the key. for authentication challenges, it is expected
 // that this nonce will be repeated back to a request.
 func (s *Server) handleNonce(w http.ResponseWriter, r *http.Request) {
-	byt := make([]byte, nonceSize)
+	byt := make([]byte, NonceSize)
 
 	ok := true
 	var nonce string
 
 	// XXX potential to infinite loop; just seems really unlikely.
 	for ok {
-		if n, err := rand.Read(byt); err != nil || n != nonceSize {
+		if n, err := rand.Read(byt); err != nil || n != NonceSize {
 			http.Error(w, fmt.Sprintf("Invalid entropy read (size: %d, error: %v)", n, err), http.StatusInternalServerError)
 			return
 		}
@@ -86,7 +86,7 @@ func (s *Server) handleValidateNonce(r *http.Request, t api.Message) (int, error
 }
 
 func (s *Server) handleAuthCheck(w http.ResponseWriter, r *http.Request) {
-	nonce := make(api.AuthCheck, nonceSize)
+	nonce := make(api.AuthCheck, NonceSize)
 
 	if code, err := s.handleValidateNonce(r, nonce); err != nil {
 		http.Error(w, fmt.Sprintf("Nonce validation failed: %v", err), code)

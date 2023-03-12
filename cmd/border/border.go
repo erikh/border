@@ -1,15 +1,11 @@
 package main
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"flag"
 	"fmt"
-	"io"
 	"net"
-	"net/http"
-	"net/url"
 	"os"
 	"os/signal"
 	"time"
@@ -148,53 +144,10 @@ func clientAuthCheck(args []string) error {
 		return fmt.Errorf("Could not load client configuration at %q: %w", *clientConfigFile, err)
 	}
 
-	baseurl, err := url.Parse(client.BaseURL)
-	if err != nil {
-		return fmt.Errorf("Invalid BaseURL %q: %w", client.BaseURL, err)
-	}
+	authCheck := make(api.AuthCheck, controlserver.NonceSize)
 
-	nonce, err := client.GetNonce()
-	if err != nil {
-		return fmt.Errorf("Could not retrieve nonce: %w", err)
-	}
-
-	// FIXME remove this cut & paste job
-	u := baseurl.JoinPath("/" + api.PathAuthCheck)
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-	defer cancel()
-
-	encrypter, err := josekit.GetEncrypter(client.AuthKey)
-	if err != nil {
-		return errors.Join(controlclient.ErrEncrypt, err)
-	}
-
-	cipherText, err := encrypter.Encrypt(nonce)
-	if err != nil {
-		return errors.Join(controlclient.ErrEncrypt, err)
-	}
-
-	out, err := cipherText.CompactSerialize()
-	if err != nil {
-		return errors.Join(controlclient.ErrEncrypt, err)
-	}
-
-	req, err := http.NewRequest("PUT", u.String(), bytes.NewBuffer([]byte(out)))
-	if err != nil {
-		return err
-	}
-
-	resp, err := http.DefaultClient.Do(req.WithContext(ctx))
-	if err != nil {
-		return errors.Join(controlclient.ErrBadResponse, err)
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		byt, err := io.ReadAll(resp.Body)
-		if err != nil {
-			return errors.Join(controlclient.ErrBadResponse, err)
-		}
-
-		return fmt.Errorf("Status was not OK after auth check, status was %v: %v", resp.StatusCode, string(byt))
+	if _, err := client.SendRequest(api.PathAuthCheck, &authCheck); err != nil {
+		return fmt.Errorf("Authentication failed: %w", err)
 	}
 
 	fmt.Println("OK")

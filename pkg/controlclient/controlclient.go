@@ -85,37 +85,37 @@ func (c *Client) GetNonce() ([]byte, error) {
 	return nonce, nil
 }
 
-func (c *Client) Exchange(endpoint string, msg api.Message, res api.Message) error {
+func (c *Client) SendRequest(endpoint string, msg api.Message) (*http.Response, error) {
 	baseurl, err := url.Parse(c.BaseURL)
 	if err != nil {
-		return fmt.Errorf("Base URL %q is invalid: %w", c.BaseURL, err)
+		return nil, fmt.Errorf("Base URL %q is invalid: %w", c.BaseURL, err)
 	}
 
 	nonce, err := c.GetNonce()
 	if err != nil {
-		return fmt.Errorf("Failed to retrieve nonce: %w", err)
+		return nil, fmt.Errorf("Failed to retrieve nonce: %w", err)
 	}
 
 	msg.SetNonce(nonce)
 
 	encrypter, err := josekit.GetEncrypter(c.AuthKey)
 	if err != nil {
-		return errors.Join(ErrEncrypt, err)
+		return nil, errors.Join(ErrEncrypt, err)
 	}
 
 	byt, err := msg.Marshal()
 	if err != nil {
-		return errors.Join(ErrMarshal, err)
+		return nil, errors.Join(ErrMarshal, err)
 	}
 
 	cipherText, err := encrypter.Encrypt(byt)
 	if err != nil {
-		return errors.Join(ErrEncrypt, err)
+		return nil, errors.Join(ErrEncrypt, err)
 	}
 
 	out, err := cipherText.CompactSerialize()
 	if err != nil {
-		return errors.Join(ErrEncrypt, err)
+		return nil, errors.Join(ErrEncrypt, err)
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
@@ -125,24 +125,33 @@ func (c *Client) Exchange(endpoint string, msg api.Message, res api.Message) err
 
 	req, err := http.NewRequest("PUT", u.String(), bytes.NewBuffer([]byte(out)))
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	resp, err := http.DefaultClient.Do(req.WithContext(ctx))
 	if err != nil {
-		return errors.Join(ErrBadResponse, err)
+		return nil, errors.Join(ErrBadResponse, err)
 	}
 
 	if resp.StatusCode != http.StatusOK {
 		byt, err := io.ReadAll(resp.Body)
 		if err != nil {
-			return errors.Join(ErrBadResponse, err)
+			return nil, errors.Join(ErrBadResponse, err)
 		}
 
-		return fmt.Errorf("Status was not OK after %T call, status was %v: %v", msg, resp.StatusCode, string(byt))
+		return nil, fmt.Errorf("Status was not OK after %T call, status was %v: %v", msg, resp.StatusCode, string(byt))
 	}
 
-	byt, err = io.ReadAll(resp.Body)
+	return resp, nil
+}
+
+func (c *Client) Exchange(endpoint string, msg api.Message, res api.Message) error {
+	resp, err := c.SendRequest(endpoint, msg)
+	if err != nil {
+		return fmt.Errorf("Failed to deliver request: %w", err)
+	}
+
+	byt, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return errors.Join(ErrBadResponse, err)
 	}
