@@ -145,7 +145,15 @@ func (b *Balancer) dispatchTCP(ctx context.Context) {
 
 					// FIXME timeouts to prevent slowloris attacks
 					// FIXME probably should use CopyN to avoid other styles of slowloris attack (endless data)
-					go io.Copy(conn, backend)
+					go func() {
+						io.Copy(conn, backend)
+						b.mutex.Lock()
+						if _, ok := b.backendConns[lowestAddr]; ok {
+							b.backendConns[lowestAddr]--
+						}
+						b.mutex.Unlock()
+					}()
+
 					go io.Copy(backend, conn)
 
 					b.mutex.Unlock()
