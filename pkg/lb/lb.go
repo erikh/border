@@ -143,7 +143,7 @@ func (b *Balancer) dispatchTCP(ctx context.Context) {
 						goto retry
 					}
 
-					// FIXME timeouts to prevent slowloris attacks
+					// FIXME timeouts to prevent slowloris attacks. Also shutdown socket on context finish.
 					// FIXME probably should use CopyN to avoid other styles of slowloris attack (endless data)
 					go func() {
 						io.Copy(conn, backend)
