@@ -117,7 +117,7 @@ func (b *Balancer) dispatchTCP(ctx context.Context) {
 				b.mutex.RLock()
 				for addr := range b.backendAddresses {
 					count := b.backendConns[addr]
-					if count <= b.maxConns && count < lowestCount {
+					if count < b.maxConns && count < lowestCount {
 						lowestAddr = addr
 						lowestCount = count
 					}
