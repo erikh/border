@@ -194,8 +194,24 @@ func clientAddPeer(args []string) error {
 }
 
 func clientUpdateConfig(args []string) error {
-	fmt.Println(*configFile)
-	return nil
+	client, err := controlclient.Load(*clientConfigFile)
+	if err != nil {
+		return fmt.Errorf("Could not load client configuration at %q: %w", *clientConfigFile, err)
+	}
+
+	if len(args) != 1 {
+		return errors.New("Please provide a config file to load")
+	}
+
+	configFile := args[0]
+
+	c, err := config.FromDisk(configFile, config.LoadYAML)
+	if err != nil {
+		return err
+	}
+
+	req := api.ConfigUpdateRequest{Config: c}
+	return client.Exchange(api.PathConfigUpdate, &req, &api.NilResponse{})
 }
 
 func keyGenerate(args []string) error {
