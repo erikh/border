@@ -2,6 +2,7 @@ package lb
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -103,7 +104,7 @@ func (b *Balancer) dispatchTCP(ctx context.Context) {
 func (b *Balancer) acceptConns(connChan chan net.Conn) {
 	for {
 		conn, err := b.listener.Accept()
-		if err != nil && err != net.ErrClosed {
+		if err != nil && errors.Is(err, net.ErrClosed) {
 			log.Fatalf("Transient error in Accept, terminating listen. Restart border: %v", err)
 			return
 		}
