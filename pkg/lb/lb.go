@@ -90,77 +90,80 @@ func (b *Balancer) BalanceTCP(ctx context.Context, notifyFunc func(error)) {
 func (b *Balancer) dispatchTCP(ctx context.Context) {
 	connChan := make(chan net.Conn, b.connBuffer)
 
-	go func() {
-		for {
-			conn, err := b.listener.Accept()
-			if err != nil {
-				log.Fatalf("Transient error in Accept, terminating listen. Restart border: %v\n", err)
-				return
-			}
+	go b.acceptConns(connChan)
+	go b.forwardConn(ctx, connChan)
+}
 
-			connChan <- conn
+func (b *Balancer) acceptConns(connChan chan net.Conn) {
+	for {
+		conn, err := b.listener.Accept()
+		if err != nil {
+			log.Fatalf("Transient error in Accept, terminating listen. Restart border: %v\n", err)
+			return
 		}
-	}()
 
-	go func() {
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case conn := <-connChan:
-				// find the lowest count of conns in the group. If all hosts are
-				// saturated, loop until that changes.
-			retry:
-				var lowestAddr string
-				var lowestCount uint64
+		connChan <- conn
+	}
+}
 
-				b.mutex.RLock()
-				for addr := range b.backendAddresses {
-					count := b.backendConns[addr]
-					if count < b.maxConns && count < lowestCount {
-						lowestAddr = addr
-						lowestCount = count
-					}
+func (b *Balancer) forwardConn(ctx context.Context, connChan chan net.Conn) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case conn := <-connChan:
+			// find the lowest count of conns in the group. If all hosts are
+			// saturated, loop until that changes.
+		retry:
+			var lowestAddr string
+			var lowestCount uint64
+
+			b.mutex.RLock()
+			for addr := range b.backendAddresses {
+				count := b.backendConns[addr]
+				if count < b.maxConns && count < lowestCount {
+					lowestAddr = addr
+					lowestCount = count
 				}
-				b.mutex.RUnlock()
+			}
+			b.mutex.RUnlock()
 
-				// if we have a designated lowest count address, dial the backend and
-				// schedule the copy. Remove the backend from the pool on any error.
-				if lowestAddr != "" {
-					b.mutex.Lock()
-					b.backendConns[lowestAddr]++
-					backend, err := net.Dial("tcp", lowestAddr)
+			// if we have a designated lowest count address, dial the backend and
+			// schedule the copy. Remove the backend from the pool on any error.
+			if lowestAddr != "" {
+				b.mutex.Lock()
+				b.backendConns[lowestAddr]++
+				backend, err := net.Dial("tcp", lowestAddr)
 
-					// FIXME pool removal should happen as a result of health checks,
-					// not dial errors. We should try with a different address on dial
-					// errors, which we do by pruning the pool right now. Something
-					// more elegant should be employed in the face of transient errors.
-					if err != nil {
-						log.Printf("Backend %q failed: removing from pool: %v", lowestAddr, err)
-						delete(b.backendAddresses, lowestAddr)
-						delete(b.backendConns, lowestAddr)
-						b.mutex.Unlock()
-						goto retry
-					}
-
-					// FIXME timeouts to prevent slowloris attacks. Also shutdown socket on context finish.
-					// FIXME probably should use CopyN to avoid other styles of slowloris attack (endless data)
-					go func() {
-						io.Copy(conn, backend)
-						b.mutex.Lock()
-						if _, ok := b.backendConns[lowestAddr]; ok {
-							b.backendConns[lowestAddr]--
-						}
-						b.mutex.Unlock()
-					}()
-
-					go io.Copy(backend, conn)
-
+				// FIXME pool removal should happen as a result of health checks,
+				// not dial errors. We should try with a different address on dial
+				// errors, which we do by pruning the pool right now. Something
+				// more elegant should be employed in the face of transient errors.
+				if err != nil {
+					log.Printf("Backend %q failed: removing from pool: %v", lowestAddr, err)
+					delete(b.backendAddresses, lowestAddr)
+					delete(b.backendConns, lowestAddr)
 					b.mutex.Unlock()
-				} else {
 					goto retry
 				}
+
+				// FIXME timeouts to prevent slowloris attacks. Also shutdown socket on context finish.
+				// FIXME probably should use CopyN to avoid other styles of slowloris attack (endless data)
+				go func() {
+					io.Copy(conn, backend)
+					b.mutex.Lock()
+					if _, ok := b.backendConns[lowestAddr]; ok {
+						b.backendConns[lowestAddr]--
+					}
+					b.mutex.Unlock()
+				}()
+
+				go io.Copy(backend, conn)
+
+				b.mutex.Unlock()
+			} else {
+				goto retry
 			}
 		}
-	}()
+	}
 }
