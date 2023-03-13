@@ -98,7 +98,7 @@ func (b *Balancer) acceptConns(connChan chan net.Conn) {
 	for {
 		conn, err := b.listener.Accept()
 		if err != nil {
-			log.Fatalf("Transient error in Accept, terminating listen. Restart border: %v\n", err)
+			log.Fatalf("Transient error in Accept, terminating listen. Restart border: %v", err)
 			return
 		}
 
