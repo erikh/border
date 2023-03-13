@@ -166,6 +166,7 @@ func (b *Balancer) forwardConn(ctx context.Context, connChan chan net.Conn) {
 				go func() {
 					io.Copy(backend, conn)
 					conn.Close()
+					backend.Close()
 
 					b.mutex.Lock()
 					if _, ok := b.backendConns[lowestAddr]; ok {
@@ -177,6 +178,7 @@ func (b *Balancer) forwardConn(ctx context.Context, connChan chan net.Conn) {
 				go func() {
 					io.Copy(conn, backend)
 					conn.Close()
+					backend.Close()
 				}()
 
 				b.mutex.Unlock()
