@@ -83,8 +83,14 @@ func (b *Balancer) Start() error {
 }
 
 func (b *Balancer) BalanceTCP(ctx context.Context, notifyFunc func(error)) {
+	go b.monitorListen(ctx)
 	go b.dispatchTCP(ctx)
 	notifyFunc(nil)
+}
+
+func (b *Balancer) monitorListen(ctx context.Context) {
+	<-ctx.Done()
+	b.listener.Close()
 }
 
 func (b *Balancer) dispatchTCP(ctx context.Context) {
@@ -97,7 +103,7 @@ func (b *Balancer) dispatchTCP(ctx context.Context) {
 func (b *Balancer) acceptConns(connChan chan net.Conn) {
 	for {
 		conn, err := b.listener.Accept()
-		if err != nil {
+		if err != nil && err != net.ErrClosed {
 			log.Fatalf("Transient error in Accept, terminating listen. Restart border: %v", err)
 			return
 		}
