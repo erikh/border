@@ -64,6 +64,7 @@ func (b *Balancer) Start() error {
 
 		b.listener = listener
 		ctx, cancel := context.WithCancel(context.Background())
+		b.cancelFunc = cancel
 
 		errChan := make(chan error, 1)
 
@@ -81,6 +82,10 @@ func (b *Balancer) Start() error {
 	default:
 		return fmt.Errorf("Balancer type %q is unsupported", b.kind)
 	}
+}
+
+func (b *Balancer) Shutdown() {
+	b.cancelFunc()
 }
 
 func (b *Balancer) BalanceTCP(ctx context.Context, notifyFunc func(error)) {
@@ -104,8 +109,10 @@ func (b *Balancer) dispatchTCP(ctx context.Context) {
 func (b *Balancer) acceptConns(connChan chan net.Conn) {
 	for {
 		conn, err := b.listener.Accept()
-		if err != nil && errors.Is(err, net.ErrClosed) {
+		if err != nil && !errors.Is(err, net.ErrClosed) {
 			log.Fatalf("Transient error in Accept, terminating listen. Restart border: %v", err)
+			return
+		} else if err != nil {
 			return
 		}
 
@@ -128,7 +135,7 @@ func (b *Balancer) forwardConn(ctx context.Context, connChan chan net.Conn) {
 			b.mutex.RLock()
 			for addr := range b.backendAddresses {
 				count := b.backendConns[addr]
-				if count < b.maxConns && count < lowestCount {
+				if count < b.maxConns && count <= lowestCount {
 					lowestAddr = addr
 					lowestCount = count
 				}
@@ -157,7 +164,9 @@ func (b *Balancer) forwardConn(ctx context.Context, connChan chan net.Conn) {
 				// FIXME timeouts to prevent slowloris attacks. Also shutdown socket on context finish.
 				// FIXME probably should use CopyN to avoid other styles of slowloris attack (endless data)
 				go func() {
-					io.Copy(conn, backend)
+					io.Copy(backend, conn)
+					conn.Close()
+
 					b.mutex.Lock()
 					if _, ok := b.backendConns[lowestAddr]; ok {
 						b.backendConns[lowestAddr]--
@@ -165,7 +174,10 @@ func (b *Balancer) forwardConn(ctx context.Context, connChan chan net.Conn) {
 					b.mutex.Unlock()
 				}()
 
-				go io.Copy(backend, conn)
+				go func() {
+					io.Copy(conn, backend)
+					conn.Close()
+				}()
 
 				b.mutex.Unlock()
 			} else {

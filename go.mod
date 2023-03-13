@@ -9,6 +9,7 @@ require (
 )
 
 require (
+	github.com/erikh/go-makeload v0.1.0 // indirect
 	github.com/peterbourgon/ff v1.7.1 // indirect
 	golang.org/x/crypto v0.0.0-20210921155107-089bfa567519 // indirect
 	golang.org/x/mod v0.7.0 // indirect
