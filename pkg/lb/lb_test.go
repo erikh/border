@@ -57,7 +57,14 @@ func TestTCP(t *testing.T) {
 		addresses = append(addresses, b.Addr().String())
 	}
 
-	balancer := Init("127.0.0.1:0", BalanceTCP, addresses, 65535, 65535)
+	config := BalancerConfig{
+		Kind:                     BalanceTCP,
+		Backends:                 addresses,
+		SimultaneousConnections:  65535,
+		MaxConnectionsPerAddress: 65535,
+	}
+
+	balancer := Init("127.0.0.1:0", config)
 	if err := balancer.Start(); err != nil {
 		t.Fatal(err)
 	}

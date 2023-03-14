@@ -18,6 +18,13 @@ const (
 	BalanceHTTP = Kind("http")
 )
 
+type BalancerConfig struct {
+	Kind                     Kind
+	Backends                 []string
+	SimultaneousConnections  uint
+	MaxConnectionsPerAddress uint64
+}
+
 type Balancer struct {
 	listenSpec       string
 	kind             Kind
@@ -31,7 +38,7 @@ type Balancer struct {
 	cancelFunc context.CancelFunc
 }
 
-func Init(listenSpec string, kind Kind, addresses []string, connBuffer uint, maxConns uint64) *Balancer {
+func Init(listenSpec string, config BalancerConfig) *Balancer {
 	// FIXME this constructor needs timeout handling
 
 	conns := connMap{}
@@ -39,18 +46,18 @@ func Init(listenSpec string, kind Kind, addresses []string, connBuffer uint, max
 
 	// pregame the map, not strictly necessary but might help keep some bugs at
 	// bay.
-	for _, addr := range addresses {
+	for _, addr := range config.Backends {
 		conns[addr] = 0
 		addrs[addr] = struct{}{}
 	}
 
 	return &Balancer{
 		listenSpec:       listenSpec,
-		kind:             kind,
+		kind:             config.Kind,
 		backendAddresses: addrs,
 		backendConns:     conns,
-		connBuffer:       connBuffer,
-		maxConns:         maxConns,
+		connBuffer:       config.SimultaneousConnections,
+		maxConns:         config.MaxConnectionsPerAddress,
 	}
 }
 
