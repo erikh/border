@@ -118,8 +118,10 @@ func (lb *LB) Convert(name string) []dns.RR {
 		}
 
 		ip := net.ParseIP(host)
+
 		if ip == nil {
 			log.Fatalf("Invalid IP after Peer conversion (%q) for listener %q", host, listener)
+			return nil
 		} else if ip.To4() != nil {
 			ret = append(ret, dns.RR(&dns.A{
 				Hdr: dns.RR_Header{
