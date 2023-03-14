@@ -34,7 +34,11 @@ func makeConfig(t *testing.T) config.Config {
 		os.RemoveAll(dir)
 	})
 
-	return config.Config{Peers: map[string]config.Peer{}, FilenamePrefix: filepath.Join(dir, "config"), AuthKey: jwk}
+	return config.Config{
+		Peers:          map[string]config.Peer{},
+		FilenamePrefix: filepath.Join(dir, "config"),
+		AuthKey:        jwk,
+	}
 }
 
 func makeClient(addr net.Addr, authKey *jose.JSONWebKey) controlclient.Client {
