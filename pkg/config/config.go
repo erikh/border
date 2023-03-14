@@ -30,7 +30,7 @@ type Config struct {
 	AuthKey        *jose.JSONWebKey `json:"auth_key"`
 	Listen         ListenConfig     `json:"listen"`
 	Publisher      net.IP           `json:"publisher"`
-	Peers          []Peer           `json:"peers"`
+	Peers          map[string]Peer  `json:"peers"`
 	Zones          map[string]Zone  `json:"zones"`
 }
 
@@ -262,6 +262,10 @@ func FromDisk(filename string, loaderFunc LoaderFunc) (Config, error) {
 
 	// I'm going to hell for this
 	c.FilenamePrefix = strings.TrimSuffix(filename, filepath.Ext(filename))
+
+	if c.Peers == nil {
+		c.Peers = map[string]Peer{}
+	}
 
 	for _, zone := range c.Zones {
 		zone.convertLiteral()

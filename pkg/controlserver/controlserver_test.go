@@ -34,7 +34,7 @@ func makeConfig(t *testing.T) config.Config {
 		os.RemoveAll(dir)
 	})
 
-	return config.Config{FilenamePrefix: filepath.Join(dir, "config"), AuthKey: jwk}
+	return config.Config{Peers: map[string]config.Peer{}, FilenamePrefix: filepath.Join(dir, "config"), AuthKey: jwk}
 }
 
 func makeClient(addr net.Addr, authKey *jose.JSONWebKey) controlclient.Client {
@@ -208,7 +208,7 @@ func TestPeerRegistration(t *testing.T) {
 		t,
 		api.PathPeerRegistration,
 		"peer registration",
-		&api.PeerRegistrationRequest{Peer: peer},
+		&api.PeerRegistrationRequest{Name: "zombocom", Peer: peer},
 	)
 
 	var ok bool

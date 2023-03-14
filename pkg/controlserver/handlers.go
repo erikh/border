@@ -133,7 +133,7 @@ func (s *Server) handlePeerRegister(w http.ResponseWriter, r *http.Request) {
 	}
 
 	s.configMutex.Lock()
-	s.config.Peers = append(s.config.Peers, peerRequest.Peer)
+	s.config.Peers[peerRequest.Name] = peerRequest.Peer
 	s.configMutex.Unlock()
 
 	s.saveConfig(w)

@@ -33,7 +33,7 @@ func TestMarshal(t *testing.T) {
 	// nil.
 	c := Config{
 		Listen: ListenConfig{Control: ":5309"},
-		Peers:  []Peer{},
+		Peers:  map[string]Peer{},
 		Zones:  map[string]Zone{},
 	}
 
