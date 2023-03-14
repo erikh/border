@@ -180,7 +180,7 @@ func clientAddPeer(args []string) error {
 		return fmt.Errorf("Could not unmarshal JWK YAML: %w", err)
 	}
 
-	peer := config.Peer{
+	peer := &config.Peer{
 		Key: &jwk,
 		IP:  ip,
 	}

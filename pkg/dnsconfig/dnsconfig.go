@@ -1,13 +1,16 @@
 package dnsconfig
 
 import (
+	"log"
 	"net"
 
+	"github.com/erikh/border/pkg/lb"
 	"github.com/miekg/dns"
 )
 
 const (
-	TypeA = "A"
+	TypeA  = "A"
+	TypeLB = "LB"
 )
 
 // An attempt to normalize record management so it can be addressed in a
@@ -16,7 +19,7 @@ const (
 //
 // Honestly it kind of sucks, but no generics soooooo...
 type Record interface {
-	Convert(name string) []dns.RR
+	Convert(string) []dns.RR
 }
 
 type SOA struct {
@@ -86,6 +89,56 @@ func (ns *NS) Convert(name string) []dns.RR {
 			},
 			Ns: rec,
 		}))
+	}
+
+	return ret
+}
+
+const (
+	DefaultSimultaneousConnections  = 16384
+	DefaultMaxConnectionsPerAddress = 32768
+)
+
+type LB struct {
+	Listeners                []string `json:"listeners"`
+	Kind                     lb.Kind  `json:"kind"`
+	Backends                 []string `json:"backends"`
+	SimultaneousConnections  uint     `json:"simultaneous_connections"`
+	MaxConnectionsPerAddress uint64   `json:"max_connections_per_address"`
+	TTL                      uint32   `json:"ttl"`
+}
+
+func (lb *LB) Convert(name string) []dns.RR {
+	ret := []dns.RR{}
+	for _, listener := range lb.Listeners {
+		host, _, err := net.SplitHostPort(listener)
+		if err != nil {
+			log.Fatalf("Conversion error in listener %q converting to Peer IP: %v", listener, err)
+			return nil
+		}
+
+		ip := net.ParseIP(host)
+		if ip.To4() != nil {
+			ret = append(ret, dns.RR(&dns.A{
+				Hdr: dns.RR_Header{
+					Name:   name,
+					Rrtype: dns.TypeA,
+					Class:  dns.ClassINET,
+					Ttl:    lb.TTL,
+				},
+				A: ip,
+			}))
+		} else {
+			ret = append(ret, dns.RR(&dns.AAAA{
+				Hdr: dns.RR_Header{
+					Name:   name,
+					Rrtype: dns.TypeA,
+					Class:  dns.ClassINET,
+					Ttl:    lb.TTL,
+				},
+				AAAA: ip,
+			}))
+		}
 	}
 
 	return ret

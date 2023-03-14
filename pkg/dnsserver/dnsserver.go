@@ -9,7 +9,7 @@ import (
 )
 
 type DNSServer struct {
-	Zones     map[string]config.Zone
+	Zones     map[string]*config.Zone
 	udpServer *dns.Server
 	tcpServer *dns.Server
 }
@@ -80,7 +80,7 @@ func (ds *DNSServer) findZone(name string) *config.Zone {
 	for i := len(names); i > 0; i-- {
 		potentialZone := strings.Join(names[len(names)-i:len(names)], ".") + "."
 		if zone, ok := ds.Zones[potentialZone]; ok {
-			return &zone
+			return zone
 		}
 	}
 

@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/erikh/border/pkg/dnsconfig"
+	"github.com/erikh/border/pkg/lb"
 	"github.com/ghodss/yaml"
 	"github.com/go-jose/go-jose/v3"
 )
@@ -30,8 +31,8 @@ type Config struct {
 	AuthKey        *jose.JSONWebKey `json:"auth_key"`
 	Listen         ListenConfig     `json:"listen"`
 	Publisher      net.IP           `json:"publisher"`
-	Peers          map[string]Peer  `json:"peers"`
-	Zones          map[string]Zone  `json:"zones"`
+	Peers          map[string]*Peer `json:"peers"`
+	Zones          map[string]*Zone `json:"zones"`
 }
 
 type ListenConfig struct {
@@ -75,7 +76,7 @@ func addDot(key string) string {
 
 // Trim the trailing dot from zone records. Used in saving the configuration.
 func (c *Config) trimZones() {
-	newZones := map[string]Zone{}
+	newZones := map[string]*Zone{}
 
 	for key, zone := range c.Zones {
 		zone.SOA.Domain = trimDot(zone.SOA.Domain)
@@ -101,7 +102,7 @@ func (c *Config) trimZones() {
 
 // Decorate zones with a trailing dot. Used in loading the configuration.
 func (c *Config) decorateZones() {
-	newZones := map[string]Zone{}
+	newZones := map[string]*Zone{}
 
 	for key, zone := range c.Zones {
 		zone.SOA.Domain = addDot(zone.SOA.Domain)
@@ -125,40 +126,103 @@ func (c *Config) decorateZones() {
 	c.Zones = newZones
 }
 
-func (z *Zone) convertLiteral() error {
-	if z.NS.TTL == 0 {
-		z.NS.TTL = z.SOA.MinTTL
-	}
+// decompose the "literal value" into a dnsconfig struct record, to be
+// converted later into all sorts of useful stuff.
+//
+// this could probably be done much better with struct tags; I'm just too lazy
+// at this point.
+func (c *Config) convertLiterals() error {
+	for _, z := range c.Zones {
+		if z.NS.TTL == 0 {
+			z.NS.TTL = z.SOA.MinTTL
+		}
 
-	for _, r := range z.Records {
-		switch r.Type {
-		case dnsconfig.TypeA:
-			orig, ok := r.LiteralValue["addresses"]
-			if !ok || len(orig.([]any)) == 0 {
-				return fmt.Errorf("No addresses for %q A record", r.Name)
+		for _, r := range z.Records {
+			switch r.Type {
+			case dnsconfig.TypeA:
+				orig, ok := r.LiteralValue["addresses"]
+				if !ok || len(orig.([]any)) == 0 {
+					return fmt.Errorf("No addresses for %q A record", r.Name)
+				}
+
+				addresses := []net.IP{}
+
+				for _, addr := range r.LiteralValue["addresses"].([]any) {
+					addresses = append(addresses, net.ParseIP(addr.(string)))
+				}
+
+				var ttl uint32
+				origTTL, ok := r.LiteralValue["ttl"]
+
+				if ok {
+					ttl = uint32(origTTL.(float64))
+				} else {
+					ttl = z.SOA.MinTTL
+				}
+
+				r.Value = &dnsconfig.A{
+					Addresses: addresses,
+					TTL:       ttl,
+				}
+			case dnsconfig.TypeLB:
+				listeners := []string{}
+
+				for _, listener := range r.LiteralValue["listeners"].([]string) {
+					host, port, err := net.SplitHostPort(listener)
+					if err != nil {
+						return fmt.Errorf("Could not parse listener %q: %v", listener, err)
+					}
+
+					peer, ok := c.Peers[host]
+					if !ok {
+						return fmt.Errorf("Peer %q does not exist in peers list", host)
+					}
+
+					listeners = append(listeners, net.JoinHostPort(peer.IP.String(), port))
+				}
+
+				kind, ok := r.LiteralValue["kind"].(lb.Kind)
+				if !ok {
+					return errors.New("kind was not specified in LB record")
+				}
+
+				switch kind {
+				case lb.BalanceTCP:
+				default:
+					return fmt.Errorf("Kind was invalid: %q", kind)
+				}
+
+				backends, ok := r.LiteralValue["backends"].([]string)
+				if !ok {
+					return errors.New("lb backends were unspecified or invalid")
+				}
+
+				sc, ok := r.LiteralValue["simultaneous_connections"].(uint)
+				if !ok {
+					sc = dnsconfig.DefaultSimultaneousConnections
+				}
+
+				mc, ok := r.LiteralValue["max_connections_per_address"].(uint64)
+				if !ok {
+					mc = dnsconfig.DefaultMaxConnectionsPerAddress
+				}
+
+				ttl, ok := r.LiteralValue["ttl"].(uint32)
+				if !ok {
+					ttl = z.SOA.MinTTL
+				}
+
+				r.Value = &dnsconfig.LB{
+					Listeners:                listeners,
+					Kind:                     kind,
+					Backends:                 backends,
+					SimultaneousConnections:  sc,
+					MaxConnectionsPerAddress: mc,
+					TTL:                      ttl,
+				}
+			default:
+				return fmt.Errorf("invalid type for record %q", r.Name)
 			}
-
-			addresses := []net.IP{}
-
-			for _, addr := range r.LiteralValue["addresses"].([]any) {
-				addresses = append(addresses, net.ParseIP(addr.(string)))
-			}
-
-			var ttl uint32
-			origTTL, ok := r.LiteralValue["ttl"]
-
-			if ok {
-				ttl = uint32(origTTL.(float64))
-			} else {
-				ttl = z.SOA.MinTTL
-			}
-
-			r.Value = &dnsconfig.A{
-				Addresses: addresses,
-				TTL:       ttl,
-			}
-		default:
-			return fmt.Errorf("invalid type for record %q", r.Name)
 		}
 	}
 
@@ -264,13 +328,10 @@ func FromDisk(filename string, loaderFunc LoaderFunc) (Config, error) {
 	c.FilenamePrefix = strings.TrimSuffix(filename, filepath.Ext(filename))
 
 	if c.Peers == nil {
-		c.Peers = map[string]Peer{}
+		c.Peers = map[string]*Peer{}
 	}
 
-	for _, zone := range c.Zones {
-		zone.convertLiteral()
-	}
-
+	c.convertLiterals()
 	c.decorateZones()
 
 	return c, nil

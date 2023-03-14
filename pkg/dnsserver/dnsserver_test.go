@@ -14,7 +14,7 @@ import (
 
 func TestStartShutdown(t *testing.T) {
 	ds := &DNSServer{
-		Zones: map[string]config.Zone{
+		Zones: map[string]*config.Zone{
 			"test.home.arpa.": {
 				SOA: dnsconfig.SOA{
 					Domain:  "test.home.arpa.",
@@ -183,7 +183,7 @@ func TestStartShutdown(t *testing.T) {
 
 func TestFindZone(t *testing.T) {
 	ds := &DNSServer{
-		Zones: map[string]config.Zone{
+		Zones: map[string]*config.Zone{
 			"test.home.arpa.": {
 				SOA: dnsconfig.SOA{
 					Domain: "test.home.arpa.",

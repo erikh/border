@@ -35,7 +35,7 @@ func makeConfig(t *testing.T) config.Config {
 	})
 
 	return config.Config{
-		Peers:          map[string]config.Peer{},
+		Peers:          map[string]*config.Peer{},
 		FilenamePrefix: filepath.Join(dir, "config"),
 		AuthKey:        jwk,
 	}
@@ -203,7 +203,7 @@ func TestPeerRegistration(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	peer := config.Peer{
+	peer := &config.Peer{
 		IP:  net.ParseIP("127.0.0.1"),
 		Key: jwk,
 	}

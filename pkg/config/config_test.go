@@ -33,8 +33,8 @@ func TestMarshal(t *testing.T) {
 	// nil.
 	c := Config{
 		Listen: ListenConfig{Control: ":5309"},
-		Peers:  map[string]Peer{},
-		Zones:  map[string]Zone{},
+		Peers:  map[string]*Peer{},
+		Zones:  map[string]*Zone{},
 	}
 
 	dir, err := os.MkdirTemp("", "")
