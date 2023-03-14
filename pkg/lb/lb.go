@@ -44,7 +44,7 @@ func Init(listenSpec string, config BalancerConfig) *Balancer {
 	conns := connMap{}
 	addrs := map[string]struct{}{}
 
-	// pregame the map, not strictly necessary but might help keep some bugs at
+	// pre-game the map, not strictly necessary but might help keep some bugs at
 	// bay.
 	for _, addr := range config.Backends {
 		conns[addr] = 0
