@@ -327,8 +327,8 @@ func FromDisk(filename string, loaderFunc LoaderFunc) (Config, error) {
 	// I'm going to hell for this
 	c.FilenamePrefix = strings.TrimSuffix(filename, filepath.Ext(filename))
 
-	if c.Peers == nil {
-		c.Peers = map[string]*Peer{}
+	if c.Peers == nil || len(c.Peers) == 0 {
+		return c, errors.New("You must specify at least one peer")
 	}
 
 	c.convertLiterals()
