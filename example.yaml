@@ -13,6 +13,18 @@ auth_key:
   k: VbqOkBfoftuqk7_qzQse70AUScQJJGiR4JUfv-jHGIA
   kid: control
   kty: oct
+# you must define at least one peer, this host will do fine for now.
+# peers are transformed into load balancer and "glue" records from the
+# configuration.
+peers:
+  foo:
+    key:
+      alg: A256KW
+      k: VbqOkBfoftuqk7_qzQse70AUScQJJGiR4JUfv-jHGIA
+      kid: control
+      kty: oct
+    ip: 127.0.0.1
+# DNS zones. Note, the records coordinate to all services border provides.
 zones:
   test.home.arpa:
     soa:
