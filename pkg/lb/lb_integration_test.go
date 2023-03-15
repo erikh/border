@@ -50,6 +50,9 @@ func TestTCPIntegrationNginx(t *testing.T) {
 
 	d := duct.New(duct.Manifest{
 		{
+			// NOTE the other definitions specify "LocalImage" to avoid 5 pulls at
+			// once, which bombs out quay.io and fails often. However, if this one is
+			// removed, it will not go so well for first-timers.
 			Name:         "balancer-1",
 			Image:        "quay.io/dockerlibrary/nginx",
 			PortForwards: makeNginxPortForward(8001),
