@@ -41,6 +41,7 @@ func (s *Server) Shutdown(ctx context.Context) error {
 	if err := s.dns.Shutdown(); err != nil {
 		return fmt.Errorf("While terminating DNS server: %v", err)
 	}
+
 	if err := s.control.Shutdown(ctx); err != nil {
 		return fmt.Errorf("While terminating control server: %v", err)
 	}
