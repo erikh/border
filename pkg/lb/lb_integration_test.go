@@ -14,6 +14,25 @@ import (
 	dc "github.com/fsouza/go-dockerclient"
 )
 
+func makeNginxPortForward(port int) map[int]int {
+	return map[int]int{
+		port: 80,
+	}
+}
+
+func makeNginxAliveFunc(listenSpec string) func(context.Context, *dc.Client, string) error {
+	return func(context.Context, *dc.Client, string) error {
+		for {
+			if _, err := net.Dial("tcp", listenSpec); err != nil {
+				time.Sleep(100 * time.Millisecond)
+				continue
+			}
+
+			return nil
+		}
+	}
+}
+
 func TestTCPIntegrationNginx(t *testing.T) {
 	balancerConfig := BalancerConfig{
 		Kind: BalanceTCP,
@@ -31,98 +50,38 @@ func TestTCPIntegrationNginx(t *testing.T) {
 
 	d := duct.New(duct.Manifest{
 		{
-			Name:  "balancer-1",
-			Image: "quay.io/dockerlibrary/nginx",
-			PortForwards: map[int]int{
-				8001: 80,
-			},
-			AliveFunc: func(ctx context.Context, client *dc.Client, id string) error {
-				for {
-					if _, err := net.Dial("tcp", "localhost:8001"); err != nil {
-						time.Sleep(100 * time.Millisecond)
-						continue
-					}
-
-					break
-				}
-				return nil
-			},
+			Name:         "balancer-1",
+			Image:        "quay.io/dockerlibrary/nginx",
+			PortForwards: makeNginxPortForward(8001),
+			AliveFunc:    makeNginxAliveFunc("localhost:8001"),
 		},
 		{
-			Name:  "balancer-2",
-			Image: "quay.io/dockerlibrary/nginx",
-			PortForwards: map[int]int{
-				8002: 80,
-			},
-			LocalImage: true,
-			AliveFunc: func(ctx context.Context, client *dc.Client, id string) error {
-				for {
-					if _, err := net.Dial("tcp", "localhost:8002"); err != nil {
-						time.Sleep(100 * time.Millisecond)
-						continue
-					}
-
-					break
-				}
-				return nil
-			},
+			Name:         "balancer-2",
+			Image:        "quay.io/dockerlibrary/nginx",
+			LocalImage:   true,
+			PortForwards: makeNginxPortForward(8002),
+			AliveFunc:    makeNginxAliveFunc("localhost:8002"),
 		},
 		{
-			Name:  "balancer-3",
-			Image: "quay.io/dockerlibrary/nginx",
-			PortForwards: map[int]int{
-				8003: 80,
-			},
-			LocalImage: true,
-			AliveFunc: func(ctx context.Context, client *dc.Client, id string) error {
-				for {
-					if _, err := net.Dial("tcp", "localhost:8003"); err != nil {
-						time.Sleep(100 * time.Millisecond)
-						continue
-					}
-
-					break
-				}
-				return nil
-			},
+			Name:         "balancer-3",
+			Image:        "quay.io/dockerlibrary/nginx",
+			PortForwards: makeNginxPortForward(8003),
+			LocalImage:   true,
+			AliveFunc:    makeNginxAliveFunc("localhost:8003"),
 		},
 		{
-			Name:  "balancer-4",
-			Image: "quay.io/dockerlibrary/nginx",
-			PortForwards: map[int]int{
-				8004: 80,
-			},
-			LocalImage: true,
-			AliveFunc: func(ctx context.Context, client *dc.Client, id string) error {
-				for {
-					if _, err := net.Dial("tcp", "localhost:8004"); err != nil {
-						time.Sleep(100 * time.Millisecond)
-						continue
-					}
-
-					break
-				}
-				return nil
-			},
+			Name:         "balancer-4",
+			Image:        "quay.io/dockerlibrary/nginx",
+			PortForwards: makeNginxPortForward(8004),
+			LocalImage:   true,
+			AliveFunc:    makeNginxAliveFunc("localhost:8004"),
 		},
 		{
-			Name:  "balancer-5",
-			Image: "quay.io/dockerlibrary/nginx",
-			PortForwards: map[int]int{
-				8005: 80,
-			},
-			LocalImage: true,
-			AliveFunc: func(ctx context.Context, client *dc.Client, id string) error {
-				for {
-					if _, err := net.Dial("tcp", "localhost:8005"); err != nil {
-						time.Sleep(100 * time.Millisecond)
-						continue
-					}
-
-					break
-				}
-				return nil
-			},
+			Name:         "balancer-5",
+			Image:        "quay.io/dockerlibrary/nginx",
+			PortForwards: makeNginxPortForward(8005),
+			LocalImage:   true,
+			AliveFunc:    makeNginxAliveFunc("localhost:8005"),
 		},
 	}, duct.WithNewNetwork("load-balancer-test"))
 
