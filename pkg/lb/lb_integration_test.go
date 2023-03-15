@@ -14,7 +14,7 @@ import (
 	dc "github.com/fsouza/go-dockerclient"
 )
 
-func TestIntegrationNginx(t *testing.T) {
+func TestTCPIntegrationNginx(t *testing.T) {
 	balancerConfig := BalancerConfig{
 		Kind: BalanceTCP,
 		Backends: []string{
