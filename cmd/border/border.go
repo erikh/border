@@ -14,8 +14,8 @@ import (
 	"github.com/erikh/border/pkg/config"
 	"github.com/erikh/border/pkg/controlclient"
 	"github.com/erikh/border/pkg/controlserver"
-	"github.com/erikh/border/pkg/dnsserver"
 	"github.com/erikh/border/pkg/josekit"
+	"github.com/erikh/border/pkg/launcher"
 	"github.com/ghodss/yaml"
 	"github.com/go-jose/go-jose/v3"
 	"github.com/peterbourgon/ff/ffcli"
@@ -90,26 +90,23 @@ func main() {
 }
 
 func serve(args []string) error {
+	if len(args) != 1 {
+		return fmt.Errorf("Please provide a peer name to serve from")
+	}
+
 	c, err := config.FromDisk(*configFile, config.LoadYAML)
 	if err != nil {
 		return err
 	}
 
-	cs, err := controlserver.Start(c, c.Listen.Control, controlserver.NonceExpiration, 100*time.Millisecond)
-	if err != nil {
-		return err
-	}
+	ctx, cancel := context.WithCancel(context.Background())
 
-	dnsserver := dnsserver.DNSServer{
-		Zones: c.Zones,
-	}
-
-	if err := dnsserver.Start(c.Listen.DNS); err != nil {
+	server := &launcher.Server{}
+	if err := server.Launch(c); err != nil {
 		return err
 	}
 
 	sigChan := make(chan os.Signal, 1)
-	outerContext, outerCancel := context.WithCancel(context.Background())
 
 	go func() {
 		<-sigChan
@@ -119,18 +116,17 @@ func serve(args []string) error {
 			sw = time.Second
 		}
 
-		ctx, cancel := context.WithTimeout(outerContext, sw)
+		innerCtx, innerCancel := context.WithTimeout(ctx, sw)
 		defer cancel()
-		defer outerCancel()
+		defer innerCancel()
 
-		dnsserver.Shutdown()
-		cs.Shutdown(ctx)
+		server.Shutdown(innerCtx)
 	}()
 
 	signal.Notify(sigChan, unix.SIGTERM, unix.SIGINT)
 
 	select {
-	case <-outerContext.Done():
+	case <-ctx.Done():
 		fmt.Fprintln(os.Stderr, "terminating")
 		os.Exit(0)
 	}
