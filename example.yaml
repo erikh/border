@@ -2,7 +2,7 @@
 # dig -p 5300 -t soa test.home.arpa. @localhost
 # dig -p 5300 -t ns test.home.arpa. @localhost
 # dig -p 5300 -t a test.home.arpa. @localhost
-# dig -p 5300 -t a foo.test.home.arpa. @localhost
+# dig -p 5300 -t a balancer.test.home.arpa. @localhost
 listen:
   control: :5309
   dns: :5300
