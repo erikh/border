@@ -151,14 +151,15 @@ func TestIntegrationNginx(t *testing.T) {
 	}
 
 	gen := makeload.LoadGenerator{
-		Concurrency:             uint(runtime.NumCPU()) / 2,
-		SimultaneousConnections: uint(runtime.NumCPU()) / 2,
+		Concurrency:             uint(runtime.NumCPU()),
+		SimultaneousConnections: uint(runtime.NumCPU()),
 		TotalConnections:        20000,
 		URL:                     u,
 		Ctx:                     context.Background(),
 	}
 
 	before := time.Now()
+
 	if err := gen.Spawn(); err != nil {
 		t.Fatal(err)
 	}
