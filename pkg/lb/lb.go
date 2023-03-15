@@ -141,7 +141,10 @@ func (b *Balancer) forwardConn(ctx context.Context, connChan chan net.Conn) {
 			b.mutex.RLock()
 			for addr := range b.backendAddresses {
 				count := b.backendConns[addr]
-				if count < b.maxConns && count <= lowestCount {
+				if lowestAddr == "" && count < b.maxConns {
+					lowestAddr = addr
+					lowestCount = count
+				} else if count < b.maxConns && count <= lowestCount {
 					lowestAddr = addr
 					lowestCount = count
 				}
