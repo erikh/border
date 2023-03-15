@@ -19,7 +19,7 @@ import (
 	"github.com/go-jose/go-jose/v3"
 )
 
-func makeConfig(t *testing.T) config.Config {
+func makeConfig(t *testing.T) *config.Config {
 	jwk, err := josekit.MakeKey("test")
 	if err != nil {
 		t.Fatal(err)
@@ -34,7 +34,7 @@ func makeConfig(t *testing.T) config.Config {
 		os.RemoveAll(dir)
 	})
 
-	return config.Config{
+	return &config.Config{
 		Peers:          map[string]*config.Peer{},
 		FilenamePrefix: filepath.Join(dir, "config"),
 		AuthKey:        jwk,

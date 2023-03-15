@@ -16,7 +16,7 @@ func TestStartShutdown(t *testing.T) {
 	ds := &DNSServer{
 		Zones: map[string]*config.Zone{
 			"test.home.arpa.": {
-				SOA: dnsconfig.SOA{
+				SOA: &dnsconfig.SOA{
 					Domain:  "test.home.arpa.",
 					Admin:   "administrator.test.home.arpa.",
 					MinTTL:  60,
@@ -25,7 +25,7 @@ func TestStartShutdown(t *testing.T) {
 					Retry:   60,
 					Expire:  60,
 				},
-				NS: dnsconfig.NS{
+				NS: &dnsconfig.NS{
 					Servers: []string{"test.home.arpa."},
 					TTL:     60,
 				},
@@ -185,17 +185,17 @@ func TestFindZone(t *testing.T) {
 	ds := &DNSServer{
 		Zones: map[string]*config.Zone{
 			"test.home.arpa.": {
-				SOA: dnsconfig.SOA{
+				SOA: &dnsconfig.SOA{
 					Domain: "test.home.arpa.",
 				},
 			},
 			"home.arpa.": {
-				SOA: dnsconfig.SOA{
+				SOA: &dnsconfig.SOA{
 					Domain: "home.arpa.",
 				},
 			},
 			"zombo.com.": {
-				SOA: dnsconfig.SOA{
+				SOA: &dnsconfig.SOA{
 					Domain: "zombo.com.",
 				},
 			},

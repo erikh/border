@@ -15,8 +15,8 @@ func errorSave() ([]byte, error) {
 	return nil, errors.New("intentional error")
 }
 
-func errorLoad(data []byte) (Config, error) {
-	return Config{}, errors.New("intentional error")
+func errorLoad(data []byte) (*Config, error) {
+	return nil, errors.New("intentional error")
 }
 
 func TestErrors(t *testing.T) {
