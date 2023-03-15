@@ -112,10 +112,15 @@ func TestTCPIntegrationNginx(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	var (
+		totalCount  = uint(20000)
+		concurrency = uint(runtime.NumCPU())
+	)
+
 	gen := makeload.LoadGenerator{
-		Concurrency:             uint(runtime.NumCPU()),
-		SimultaneousConnections: uint(runtime.NumCPU()),
-		TotalConnections:        20000,
+		Concurrency:             concurrency,
+		SimultaneousConnections: concurrency,
+		TotalConnections:        totalCount,
 		URL:                     u,
 		Ctx:                     context.Background(),
 	}
@@ -126,9 +131,9 @@ func TestTCPIntegrationNginx(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	t.Logf("RTT in %v", time.Since(before))
+	t.Logf("RTT in %v: %v connections, %v concurrency", time.Since(before), totalCount, concurrency)
 
-	if gen.Stats.Successes != 20000 {
+	if gen.Stats.Successes != totalCount {
 		t.Fatalf("Not all requests were successful: total: %d", gen.Stats.Successes)
 	}
 }
