@@ -4,7 +4,6 @@ import (
 	"log"
 	"net"
 
-	"github.com/erikh/border/pkg/lb"
 	"github.com/miekg/dns"
 )
 
@@ -101,7 +100,7 @@ const (
 
 type LB struct {
 	Listeners                []string `json:"listeners"`
-	Kind                     lb.Kind  `json:"kind"`
+	Kind                     string   `json:"kind"`
 	Backends                 []string `json:"backends"`
 	SimultaneousConnections  uint     `json:"simultaneous_connections"`
 	MaxConnectionsPerAddress uint64   `json:"max_connections_per_address"`

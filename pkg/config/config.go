@@ -46,9 +46,9 @@ type Peer struct {
 }
 
 type Zone struct {
-	SOA     dnsconfig.SOA `json:"soa"`
-	NS      dnsconfig.NS  `json:"ns"`
-	Records []*Record     `json:"records"`
+	SOA     *dnsconfig.SOA `json:"soa"`
+	NS      *dnsconfig.NS  `json:"ns"`
+	Records []*Record      `json:"records"`
 }
 
 type Record struct {
@@ -167,8 +167,8 @@ func (c *Config) convertLiterals() error {
 			case dnsconfig.TypeLB:
 				listeners := []string{}
 
-				for _, listener := range r.LiteralValue["listeners"].([]string) {
-					host, port, err := net.SplitHostPort(listener)
+				for _, listener := range r.LiteralValue["listeners"].([]any) {
+					host, port, err := net.SplitHostPort(listener.(string))
 					if err != nil {
 						return fmt.Errorf("Could not parse listener %q: %v", listener, err)
 					}
@@ -181,7 +181,7 @@ func (c *Config) convertLiterals() error {
 					listeners = append(listeners, net.JoinHostPort(peer.IP.String(), port))
 				}
 
-				kind, ok := r.LiteralValue["kind"].(lb.Kind)
+				kind, ok := r.LiteralValue["kind"].(string)
 				if !ok {
 					return errors.New("kind was not specified in LB record")
 				}
@@ -192,9 +192,15 @@ func (c *Config) convertLiterals() error {
 					return fmt.Errorf("Kind was invalid: %q", kind)
 				}
 
-				backends, ok := r.LiteralValue["backends"].([]string)
+				backends := []string{}
+
+				tmp, ok := r.LiteralValue["backends"].([]any)
 				if !ok {
 					return errors.New("lb backends were unspecified or invalid")
+				}
+
+				for _, t := range tmp {
+					backends = append(backends, t.(string))
 				}
 
 				sc, ok := r.LiteralValue["simultaneous_connections"].(uint)
@@ -229,19 +235,19 @@ func (c *Config) convertLiterals() error {
 	return nil
 }
 
-func LoadJSON(data []byte) (Config, error) {
+func LoadJSON(data []byte) (*Config, error) {
 	var c Config
 	err := json.Unmarshal(data, &c)
-	return c, err
+	return &c, err
 }
 
-func LoadYAML(data []byte) (Config, error) {
+func LoadYAML(data []byte) (*Config, error) {
 	var c Config
 	err := yaml.Unmarshal(data, &c)
-	return c, err
+	return &c, err
 }
 
-func (c Config) Save() error {
+func (c *Config) Save() error {
 	if c.FilenamePrefix == "" {
 		return errors.New("invalid filename prefix")
 	}
@@ -284,7 +290,7 @@ func (c *Config) SaveYAML() ([]byte, error) {
 }
 
 type DumperFunc func() ([]byte, error)
-type LoaderFunc func([]byte) (Config, error)
+type LoaderFunc func([]byte) (*Config, error)
 
 func ToDisk(filename string, dumperFunc DumperFunc) error {
 	b, err := dumperFunc()
@@ -305,33 +311,36 @@ func ToDisk(filename string, dumperFunc DumperFunc) error {
 	return nil
 }
 
-func FromDisk(filename string, loaderFunc LoaderFunc) (Config, error) {
-	var c Config
+func FromDisk(filename string, loaderFunc LoaderFunc) (*Config, error) {
+	var c *Config
 
 	f, err := os.Open(filename)
 	if err != nil {
-		return c, errors.Join(ErrLoad, err)
+		return nil, errors.Join(ErrLoad, err)
 	}
 	defer f.Close()
 
 	b, err := io.ReadAll(f)
 	if err != nil {
-		return c, errors.Join(ErrLoad, err)
+		return nil, errors.Join(ErrLoad, err)
 	}
 
 	c, err = loaderFunc(b)
 	if err != nil {
-		return c, errors.Join(ErrLoad, err)
+		return nil, errors.Join(ErrLoad, err)
 	}
 
 	// I'm going to hell for this
 	c.FilenamePrefix = strings.TrimSuffix(filename, filepath.Ext(filename))
 
 	if len(c.Peers) == 0 {
-		return c, errors.New("You must specify at least one peer")
+		return nil, errors.New("You must specify at least one peer")
 	}
 
-	c.convertLiterals()
+	if err := c.convertLiterals(); err != nil {
+		return nil, err
+	}
+
 	c.decorateZones()
 
 	return c, nil

@@ -84,8 +84,8 @@ func (ac AuthCheck) Marshal() ([]byte, error) {
 }
 
 type ConfigUpdateRequest struct {
-	NonceValue []byte        `json:"nonce"`
-	Config     config.Config `json:"config"`
+	NonceValue []byte         `json:"nonce"`
+	Config     *config.Config `json:"config"`
 }
 
 func (cur *ConfigUpdateRequest) Unmarshal(byt []byte) error {

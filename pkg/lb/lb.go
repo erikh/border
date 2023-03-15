@@ -10,16 +10,15 @@ import (
 	"sync"
 )
 
-type Kind string
 type connMap map[string]uint64
 
 const (
-	BalanceTCP  = Kind("tcp")
-	BalanceHTTP = Kind("http")
+	BalanceTCP  = "tcp"
+	BalanceHTTP = "http"
 )
 
 type BalancerConfig struct {
-	Kind                     Kind
+	Kind                     string
 	Backends                 []string
 	SimultaneousConnections  uint
 	MaxConnectionsPerAddress uint64
@@ -27,7 +26,7 @@ type BalancerConfig struct {
 
 type Balancer struct {
 	listenSpec       string
-	kind             Kind
+	kind             string
 	backendAddresses map[string]struct{}
 	backendConns     connMap
 	connBuffer       uint

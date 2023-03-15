@@ -44,9 +44,12 @@ zones:
         value:
           addresses:
             - 127.0.0.1
-      - type: A
-        name: foo.test.home.arpa
+      - type: LB
+        name: balancer.test.home.arpa
         value:
-          addresses:
-            - 127.0.0.1
-            - 127.0.0.2
+          listeners:
+            - foo:8000
+          backends:
+            - 127.0.0.1:8001
+            - 127.0.0.1:8002
+          kind: tcp

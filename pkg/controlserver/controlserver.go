@@ -21,7 +21,7 @@ const (
 type Server struct {
 	server   *http.Server
 	listener net.Listener
-	config   config.Config
+	config   *config.Config
 
 	nonces map[string]time.Time
 	// for testing performance; this just comes from a constant normally, but to
@@ -38,7 +38,7 @@ type Server struct {
 // We assume after bootWait, with no errors, the server has started. I can't
 // see a better way to do this with net/http since there is not a notifier
 // callback. Would prefer a better way to launch the server without blocking.
-func Start(config config.Config, listenSpec string, expireTime, bootWait time.Duration) (*Server, error) {
+func Start(config *config.Config, listenSpec string, expireTime, bootWait time.Duration) (*Server, error) {
 	if config.AuthKey == nil {
 		return nil, errors.New("You must provide an auth_key to start the server")
 	}

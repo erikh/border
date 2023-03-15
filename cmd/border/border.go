@@ -102,7 +102,7 @@ func serve(args []string) error {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	server := &launcher.Server{}
-	if err := server.Launch(c); err != nil {
+	if err := server.Launch(args[0], c); err != nil {
 		return err
 	}
 
