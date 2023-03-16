@@ -9,14 +9,9 @@ import (
 )
 
 func (b *Balancer) BalanceTCP(ctx context.Context, notifyFunc func(error)) {
-	go b.monitorTCPListen(ctx)
+	go b.monitorListen(ctx)
 	go b.dispatchTCP(ctx)
 	notifyFunc(nil)
-}
-
-func (b *Balancer) monitorTCPListen(ctx context.Context) {
-	<-ctx.Done()
-	b.listener.Close()
 }
 
 func (b *Balancer) dispatchTCP(ctx context.Context) {
@@ -62,21 +57,7 @@ func (b *Balancer) forwardTCPConn(ctx context.Context, connChan chan net.Conn) {
 			// find the lowest count of conns in the group. If all hosts are
 			// saturated, loop until that changes.
 		retry:
-			var lowestAddr string
-			var lowestCount uint64
-
-			b.mutex.RLock()
-			for addr := range b.backendAddresses {
-				count := b.backendConns[addr]
-				if lowestAddr == "" && count < b.maxConns {
-					lowestAddr = addr
-					lowestCount = count
-				} else if count < b.maxConns && count <= lowestCount {
-					lowestAddr = addr
-					lowestCount = count
-				}
-			}
-			b.mutex.RUnlock()
+			lowestAddr := b.getLowestBalancer()
 
 			// if we have a designated lowest count address, dial the backend and
 			// schedule the copy. Remove the backend from the pool on any error.
