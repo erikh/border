@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-type connMap map[string]uint64
+type connMap map[string]int
 
 const (
 	BalanceTCP  = "tcp"
@@ -19,8 +19,8 @@ const (
 type BalancerConfig struct {
 	Kind                     string
 	Backends                 []string
-	SimultaneousConnections  uint
-	MaxConnectionsPerAddress uint64
+	SimultaneousConnections  int
+	MaxConnectionsPerAddress int
 	ConnectionTimeout        time.Duration
 }
 
@@ -29,8 +29,8 @@ type Balancer struct {
 	kind             string
 	backendAddresses map[string]struct{}
 	backendConns     connMap
-	connBuffer       uint
-	maxConns         uint64        // per address
+	connBuffer       int
+	maxConns         int           // per address
 	timeout          time.Duration // per connection
 
 	listener   net.Listener
@@ -134,7 +134,7 @@ func (b *Balancer) closeConn(ctx context.Context, conn net.Conn) {
 
 func (b *Balancer) getLowestBalancer() string {
 	var lowestAddr string
-	var lowestCount uint64
+	var lowestCount int
 
 	b.mutex.RLock()
 	for addr := range b.backendAddresses {

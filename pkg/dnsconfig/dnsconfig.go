@@ -103,8 +103,8 @@ type LB struct {
 	Listeners                []string      `json:"listeners"`
 	Kind                     string        `json:"kind"`
 	Backends                 []string      `json:"backends"`
-	SimultaneousConnections  uint          `json:"simultaneous_connections"`
-	MaxConnectionsPerAddress uint64        `json:"max_connections_per_address"`
+	SimultaneousConnections  int           `json:"simultaneous_connections"`
+	MaxConnectionsPerAddress int           `json:"max_connections_per_address"`
 	ConnectionTimeout        time.Duration `json:"connection_timeout"`
 	TTL                      uint32        `json:"ttl"`
 }

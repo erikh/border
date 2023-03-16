@@ -208,12 +208,12 @@ func (c *Config) convertLiterals() error {
 					timeout = 0
 				}
 
-				sc, ok := r.LiteralValue["simultaneous_connections"].(uint)
+				sc, ok := r.LiteralValue["simultaneous_connections"].(int)
 				if !ok {
 					sc = dnsconfig.DefaultSimultaneousConnections
 				}
 
-				mc, ok := r.LiteralValue["max_connections_per_address"].(uint64)
+				mc, ok := r.LiteralValue["max_connections_per_address"].(int)
 				if !ok {
 					mc = dnsconfig.DefaultMaxConnectionsPerAddress
 				}

@@ -12,11 +12,29 @@ import (
 	"time"
 )
 
+func (b *Balancer) dialContext(ctx context.Context, network, addr string) (net.Conn, error) {
+	b.mutex.Lock()
+	b.backendConns[addr]++
+	b.mutex.Unlock()
+
+	go b.decrementCount(ctx, addr)
+
+	return (&net.Dialer{}).DialContext(ctx, network, addr)
+}
+
 func (b *Balancer) BalanceHTTP(ctx context.Context, notifyFunc func(error)) {
 	httpCtx, cancel := context.WithCancel(ctx)
 
+	client := &http.Client{
+		Transport: &http.Transport{
+			DialContext:         b.dialContext,
+			MaxIdleConnsPerHost: b.maxConns,
+			IdleConnTimeout:     b.timeout, // XXX should we still manually time out the connection with our TCP functions?
+		},
+	}
+
 	mux := http.NewServeMux()
-	mux.HandleFunc("/", b.serveHTTP(httpCtx))
+	mux.HandleFunc("/", b.serveHTTP(httpCtx, client))
 
 	server := &http.Server{
 		Handler: mux,
@@ -25,10 +43,12 @@ func (b *Balancer) BalanceHTTP(ctx context.Context, notifyFunc func(error)) {
 	errChan := make(chan error, 1)
 
 	go func() {
+		defer client.Transport.(*http.Transport).CloseIdleConnections()
 		defer cancel()
 		if err := server.Serve(b.listener); err != nil {
 			errChan <- err
 		}
+
 	}()
 
 	select {
@@ -39,7 +59,7 @@ func (b *Balancer) BalanceHTTP(ctx context.Context, notifyFunc func(error)) {
 	}
 }
 
-func (b *Balancer) serveHTTP(ctx context.Context) func(http.ResponseWriter, *http.Request) {
+func (b *Balancer) serveHTTP(ctx context.Context, client *http.Client) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		headers := http.Header{}
 
@@ -83,30 +103,20 @@ func (b *Balancer) serveHTTP(ctx context.Context) func(http.ResponseWriter, *htt
 		case <-ctx.Done(): // balancer context, not the conn
 		default:
 		retry:
-			lowestAddr := b.getLowestBalancer()
-			if lowestAddr != "" {
-				b.mutex.Lock()
-				b.backendConns[lowestAddr]++
-
+			if lowestAddr := b.getLowestBalancer(); lowestAddr != "" {
 				url := r.URL
+				url.Scheme = "http"
 				url.Host = lowestAddr
 
 				req, err := http.NewRequestWithContext(connCtx, r.Method, url.String(), r.Body)
 				if err != nil {
 					http.Error(w, fmt.Sprintf("Proxy error: %v", err), http.StatusInternalServerError)
-					b.mutex.Unlock()
 					return
 				}
 
 				req.Header = headers
 
-				b.mutex.Unlock()
-
-				// FIXME need to use http.Transport properly to do connection tracking
-				// properly. net/http will get in the way.
-				go b.decrementCount(connCtx, lowestAddr)
-
-				resp, err := http.DefaultClient.Do(req)
+				resp, err := client.Do(req)
 				if err != nil {
 					http.Error(w, fmt.Sprintf("Proxy error: %v", err), http.StatusInternalServerError)
 					return
