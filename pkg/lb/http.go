@@ -125,12 +125,13 @@ func (b *Balancer) serveHTTP(ctx context.Context, client *http.Client) func(http
 				r.Body.Close()
 				defer resp.Body.Close()
 
-				if _, err := io.Copy(w, resp.Body); err != nil && !errors.Is(err, net.ErrClosed) {
+				if resp.StatusCode != http.StatusOK {
+					// FIXME I'm not sure this is right; but I'm trying to avoid a golang warning atm
+					w.WriteHeader(resp.StatusCode)
+				} else if _, err := io.Copy(w, resp.Body); err != nil && !errors.Is(err, net.ErrClosed) {
 					http.Error(w, fmt.Sprintf("Early close in body copy: %v", err), http.StatusInternalServerError)
 					return
 				}
-
-				w.WriteHeader(resp.StatusCode)
 			} else {
 				goto retry
 			}
