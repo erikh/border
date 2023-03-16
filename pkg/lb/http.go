@@ -29,7 +29,7 @@ func (b *Balancer) BalanceHTTP(ctx context.Context, notifyFunc func(error)) {
 		Transport: &http.Transport{
 			DialContext:         b.dialContext,
 			MaxIdleConnsPerHost: b.maxConns,
-			IdleConnTimeout:     b.timeout, // XXX should we still manually time out the connection with our TCP functions?
+			IdleConnTimeout:     b.timeout,
 		},
 	}
 

@@ -67,12 +67,12 @@ func TestTCPIntegrationNginx(t *testing.T) {
 		// NOTE the other definitions specify "LocalImage" to avoid 5 pulls at
 		// once, which bombs out quay.io and fails often. However, if this one is
 		// added as a LocalImage, it will not go so well for first-timers.
-		makeNginx("balancer-1", false, 8001),
-		makeNginx("balancer-2", true, 8002),
-		makeNginx("balancer-3", true, 8003),
-		makeNginx("balancer-4", true, 8004),
-		makeNginx("balancer-5", true, 8005),
-	}, duct.WithNewNetwork("load-balancer-test"))
+		makeNginx("tcp-balancer-1", false, 8001),
+		makeNginx("tcp-balancer-2", true, 8002),
+		makeNginx("tcp-balancer-3", true, 8003),
+		makeNginx("tcp-balancer-4", true, 8004),
+		makeNginx("tcp-balancer-5", true, 8005),
+	}, duct.WithNewNetwork("tcp-load-balancer-test"))
 
 	d.HandleSignals(true)
 
@@ -144,12 +144,12 @@ func TestHTTPIntegrationNginx(t *testing.T) {
 		// NOTE the other definitions specify "LocalImage" to avoid 5 pulls at
 		// once, which bombs out quay.io and fails often. However, if this one is
 		// added as a LocalImage, it will not go so well for first-timers.
-		makeNginx("balancer-1", false, 8011),
-		makeNginx("balancer-2", true, 8012),
-		makeNginx("balancer-3", true, 8013),
-		makeNginx("balancer-4", true, 8014),
-		makeNginx("balancer-5", true, 8015),
-	}, duct.WithNewNetwork("load-balancer-test"))
+		makeNginx("http-balancer-1", false, 8011),
+		makeNginx("http-balancer-2", true, 8012),
+		makeNginx("http-balancer-3", true, 8013),
+		makeNginx("http-balancer-4", true, 8014),
+		makeNginx("http-balancer-5", true, 8015),
+	}, duct.WithNewNetwork("http-load-balancer-test"))
 
 	d.HandleSignals(true)
 

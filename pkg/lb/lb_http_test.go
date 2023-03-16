@@ -22,10 +22,11 @@ func (h *httpCounter) serveHTTP(w http.ResponseWriter, r *http.Request) {
 	h.count.Add(1)
 }
 
-func (h *httpCounter) makeHTTPBackend() (*http.Server, net.Listener, error) {
-	mux := http.NewServeMux()
-	mux.HandleFunc("/", h.serveHTTP)
+func (h *httpCounter) serveHTTPTimeout(w http.ResponseWriter, r *http.Request) {
+	time.Sleep(200 * time.Millisecond)
+}
 
+func (h *httpCounter) makeHTTPBackend(mux *http.ServeMux) (*http.Server, net.Listener, error) {
 	server := &http.Server{
 		Handler: mux,
 	}
@@ -51,15 +52,94 @@ func (h *httpCounter) makeHTTPBackend() (*http.Server, net.Listener, error) {
 	}
 }
 
-func TestHTTP(t *testing.T) {
+func TestHTTPTimeout(t *testing.T) {
 	counter := &httpCounter{}
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("/", counter.serveHTTPTimeout)
+
 	backends := []*http.Server{}
 	listeners := []net.Listener{}
 
 	t.Logf("Spawning %d backends", runtime.NumCPU())
 
 	for i := 0; i < runtime.NumCPU(); i++ {
-		backend, listener, err := counter.makeHTTPBackend()
+		backend, listener, err := counter.makeHTTPBackend(mux)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		backends = append(backends, backend)
+		listeners = append(listeners, listener)
+	}
+
+	t.Cleanup(func() {
+		for _, b := range backends {
+			if err := b.Shutdown(context.Background()); err != nil {
+				t.Fatal(err)
+			}
+		}
+
+		for _, l := range listeners {
+			l.Close()
+		}
+	})
+
+	addresses := []string{}
+
+	for _, l := range listeners {
+		addresses = append(addresses, l.Addr().String())
+	}
+
+	config := BalancerConfig{
+		Kind:                     BalanceHTTP,
+		Backends:                 addresses,
+		SimultaneousConnections:  65535,
+		MaxConnectionsPerAddress: 65535,
+		ConnectionTimeout:        100 * time.Millisecond,
+	}
+
+	balancer := Init("127.0.0.1:0", config)
+	if err := balancer.Start(); err != nil {
+		t.Fatal(err)
+	}
+
+	t.Cleanup(balancer.Shutdown)
+
+	u, err := url.Parse(fmt.Sprintf("http://%s", balancer.listener.Addr()))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	gen := makeload.LoadGenerator{
+		Concurrency:             uint(len(backends)),
+		SimultaneousConnections: 100,
+		TotalConnections:        1000,
+		URL:                     u,
+		Ctx:                     context.Background(),
+	}
+
+	if err := gen.Spawn(); err != nil {
+		t.Fatal(err)
+	}
+
+	if gen.Stats.Failures != 1000 {
+		t.Fatalf("Not all requests were delivered: total: %d", gen.Stats.Failures)
+	}
+}
+
+func TestHTTP(t *testing.T) {
+	counter := &httpCounter{}
+	mux := http.NewServeMux()
+	mux.HandleFunc("/", counter.serveHTTP)
+
+	backends := []*http.Server{}
+	listeners := []net.Listener{}
+
+	t.Logf("Spawning %d backends", runtime.NumCPU())
+
+	for i := 0; i < runtime.NumCPU(); i++ {
+		backend, listener, err := counter.makeHTTPBackend(mux)
 		if err != nil {
 			t.Fatal(err)
 		}
