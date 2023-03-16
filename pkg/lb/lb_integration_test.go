@@ -33,16 +33,30 @@ func makeNginxAliveFunc(listenSpec string) func(context.Context, *dc.Client, str
 	}
 }
 
+func makeNginx(name string, localImage bool, port int) *duct.Container {
+	return &duct.Container{
+		Name:         name,
+		Image:        "quay.io/dockerlibrary/nginx",
+		LocalImage:   localImage,
+		PortForwards: makeNginxPortForward(port),
+		AliveFunc:    makeNginxAliveFunc(localhost(port)),
+	}
+}
+
+func localhost(port int) string {
+	return fmt.Sprintf("127.0.0.1:%d", port)
+}
+
 func TestTCPIntegrationNginx(t *testing.T) {
 	balancerConfig := BalancerConfig{
 		Kind: BalanceTCP,
 		Backends: []string{
 			// XXX if the nginx's are changed below, these must change too
-			"127.0.0.1:8001",
-			"127.0.0.1:8002",
-			"127.0.0.1:8003",
-			"127.0.0.1:8004",
-			"127.0.0.1:8005",
+			localhost(8001),
+			localhost(8002),
+			localhost(8003),
+			localhost(8004),
+			localhost(8005),
 		},
 		SimultaneousConnections:  65535,
 		MaxConnectionsPerAddress: 65535,
@@ -50,43 +64,14 @@ func TestTCPIntegrationNginx(t *testing.T) {
 	}
 
 	d := duct.New(duct.Manifest{
-		{
-			// NOTE the other definitions specify "LocalImage" to avoid 5 pulls at
-			// once, which bombs out quay.io and fails often. However, if this one is
-			// added as a LocalImage, it will not go so well for first-timers.
-			Name:         "balancer-1",
-			Image:        "quay.io/dockerlibrary/nginx",
-			PortForwards: makeNginxPortForward(8001),
-			AliveFunc:    makeNginxAliveFunc("localhost:8001"),
-		},
-		{
-			Name:         "balancer-2",
-			Image:        "quay.io/dockerlibrary/nginx",
-			LocalImage:   true,
-			PortForwards: makeNginxPortForward(8002),
-			AliveFunc:    makeNginxAliveFunc("localhost:8002"),
-		},
-		{
-			Name:         "balancer-3",
-			Image:        "quay.io/dockerlibrary/nginx",
-			PortForwards: makeNginxPortForward(8003),
-			LocalImage:   true,
-			AliveFunc:    makeNginxAliveFunc("localhost:8003"),
-		},
-		{
-			Name:         "balancer-4",
-			Image:        "quay.io/dockerlibrary/nginx",
-			PortForwards: makeNginxPortForward(8004),
-			LocalImage:   true,
-			AliveFunc:    makeNginxAliveFunc("localhost:8004"),
-		},
-		{
-			Name:         "balancer-5",
-			Image:        "quay.io/dockerlibrary/nginx",
-			PortForwards: makeNginxPortForward(8005),
-			LocalImage:   true,
-			AliveFunc:    makeNginxAliveFunc("localhost:8005"),
-		},
+		// NOTE the other definitions specify "LocalImage" to avoid 5 pulls at
+		// once, which bombs out quay.io and fails often. However, if this one is
+		// added as a LocalImage, it will not go so well for first-timers.
+		makeNginx("balancer-1", false, 8001),
+		makeNginx("balancer-2", true, 8002),
+		makeNginx("balancer-3", true, 8003),
+		makeNginx("balancer-4", true, 8004),
+		makeNginx("balancer-5", true, 8005),
 	}, duct.WithNewNetwork("load-balancer-test"))
 
 	d.HandleSignals(true)
