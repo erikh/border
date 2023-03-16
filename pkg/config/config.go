@@ -203,6 +203,11 @@ func (c *Config) convertLiterals() error {
 					backends = append(backends, t.(string))
 				}
 
+				timeout, ok := r.LiteralValue["connection_timeout"].(time.Duration)
+				if !ok {
+					timeout = 0
+				}
+
 				sc, ok := r.LiteralValue["simultaneous_connections"].(uint)
 				if !ok {
 					sc = dnsconfig.DefaultSimultaneousConnections
@@ -224,6 +229,7 @@ func (c *Config) convertLiterals() error {
 					Backends:                 backends,
 					SimultaneousConnections:  sc,
 					MaxConnectionsPerAddress: mc,
+					ConnectionTimeout:        timeout,
 					TTL:                      ttl,
 				}
 			default:

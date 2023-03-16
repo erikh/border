@@ -3,6 +3,7 @@ package dnsconfig
 import (
 	"log"
 	"net"
+	"time"
 
 	"github.com/miekg/dns"
 )
@@ -99,12 +100,13 @@ const (
 )
 
 type LB struct {
-	Listeners                []string `json:"listeners"`
-	Kind                     string   `json:"kind"`
-	Backends                 []string `json:"backends"`
-	SimultaneousConnections  uint     `json:"simultaneous_connections"`
-	MaxConnectionsPerAddress uint64   `json:"max_connections_per_address"`
-	TTL                      uint32   `json:"ttl"`
+	Listeners                []string      `json:"listeners"`
+	Kind                     string        `json:"kind"`
+	Backends                 []string      `json:"backends"`
+	SimultaneousConnections  uint          `json:"simultaneous_connections"`
+	MaxConnectionsPerAddress uint64        `json:"max_connections_per_address"`
+	ConnectionTimeout        time.Duration `json:"connection_timeout"`
+	TTL                      uint32        `json:"ttl"`
 }
 
 func (lb *LB) Convert(name string) []dns.RR {

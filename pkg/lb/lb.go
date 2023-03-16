@@ -8,6 +8,7 @@ import (
 	"log"
 	"net"
 	"sync"
+	"time"
 )
 
 type connMap map[string]uint64
@@ -22,6 +23,7 @@ type BalancerConfig struct {
 	Backends                 []string
 	SimultaneousConnections  uint
 	MaxConnectionsPerAddress uint64
+	ConnectionTimeout        time.Duration
 }
 
 type Balancer struct {
@@ -30,7 +32,8 @@ type Balancer struct {
 	backendAddresses map[string]struct{}
 	backendConns     connMap
 	connBuffer       uint
-	maxConns         uint64 // per address
+	maxConns         uint64        // per address
+	timeout          time.Duration // per connection
 
 	listener   net.Listener
 	mutex      sync.RWMutex
@@ -38,8 +41,6 @@ type Balancer struct {
 }
 
 func Init(listenSpec string, config BalancerConfig) *Balancer {
-	// FIXME this constructor needs timeout handling
-
 	conns := connMap{}
 	addrs := map[string]struct{}{}
 
@@ -57,6 +58,7 @@ func Init(listenSpec string, config BalancerConfig) *Balancer {
 		backendConns:     conns,
 		connBuffer:       config.SimultaneousConnections,
 		maxConns:         config.MaxConnectionsPerAddress,
+		timeout:          config.ConnectionTimeout,
 	}
 }
 
@@ -126,12 +128,45 @@ func (b *Balancer) acceptConns(connChan chan net.Conn) {
 	}
 }
 
+func (b *Balancer) closeConn(ctx context.Context, conn net.Conn) {
+	select {
+	case <-ctx.Done():
+	}
+
+	conn.Close()
+}
+
+func (b *Balancer) decrementCount(ctx context.Context, lowestAddr string) {
+	select {
+	case <-ctx.Done():
+	}
+
+	b.mutex.Lock()
+	if _, ok := b.backendConns[lowestAddr]; ok {
+		b.backendConns[lowestAddr]--
+	}
+	b.mutex.Unlock()
+}
+
 func (b *Balancer) forwardConn(ctx context.Context, connChan chan net.Conn) {
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case conn := <-connChan:
+			var (
+				connCtx context.Context
+				cancel  context.CancelFunc
+			)
+
+			if b.timeout != 0 {
+				connCtx, cancel = context.WithTimeout(ctx, b.timeout)
+			} else {
+				connCtx, cancel = context.WithCancel(ctx)
+			}
+
+			go b.closeConn(connCtx, conn)
+
 			// find the lowest count of conns in the group. If all hosts are
 			// saturated, loop until that changes.
 		retry:
@@ -170,24 +205,19 @@ func (b *Balancer) forwardConn(ctx context.Context, connChan chan net.Conn) {
 					goto retry
 				}
 
+				go b.closeConn(connCtx, backend)
+				go b.decrementCount(connCtx, lowestAddr)
+
 				// FIXME timeouts to prevent slowloris attacks. Also shutdown socket on context finish.
 				// FIXME probably should use CopyN to avoid other styles of slowloris attack (endless data)
 				go func() {
 					io.Copy(backend, conn)
-					conn.Close()
-					backend.Close()
-
-					b.mutex.Lock()
-					if _, ok := b.backendConns[lowestAddr]; ok {
-						b.backendConns[lowestAddr]--
-					}
-					b.mutex.Unlock()
+					cancel()
 				}()
 
 				go func() {
 					io.Copy(conn, backend)
-					conn.Close()
-					backend.Close()
+					cancel()
 				}()
 
 				b.mutex.Unlock()

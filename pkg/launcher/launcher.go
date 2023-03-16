@@ -56,6 +56,7 @@ func (s *Server) Launch(peerName string, c *config.Config) error {
 							Backends:                 lbRecord.Backends,
 							SimultaneousConnections:  lbRecord.SimultaneousConnections,
 							MaxConnectionsPerAddress: lbRecord.MaxConnectionsPerAddress,
+							ConnectionTimeout:        lbRecord.ConnectionTimeout,
 						}
 
 						balancer := lb.Init(listener, bc)
