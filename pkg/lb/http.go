@@ -66,50 +66,63 @@ func (b *Balancer) serveHTTP(ctx context.Context) func(http.ResponseWriter, *htt
 
 		// FIXME X-Real-IP support?
 
-		for {
-			select {
-			case <-ctx.Done():
-			default:
-			retry:
-				lowestAddr := b.getLowestBalancer()
-				if lowestAddr != "" {
-					b.mutex.Lock()
-					b.backendConns[lowestAddr]++
+		var (
+			connCtx context.Context
+			cancel  context.CancelFunc
+		)
 
-					url := r.URL
-					url.Host = lowestAddr
+		if b.timeout != 0 {
+			connCtx, cancel = context.WithTimeout(ctx, b.timeout)
+		} else {
+			connCtx, cancel = context.WithCancel(ctx)
+		}
 
-					req, err := http.NewRequestWithContext(ctx, r.Method, url.String(), r.Body)
-					if err != nil {
-						http.Error(w, fmt.Sprintf("Proxy error: %v", err), http.StatusInternalServerError)
-						b.mutex.Unlock()
-						return
-					}
+		defer cancel()
 
-					req.Header = headers
+		select {
+		case <-ctx.Done(): // balancer context, not the conn
+		default:
+		retry:
+			lowestAddr := b.getLowestBalancer()
+			if lowestAddr != "" {
+				b.mutex.Lock()
+				b.backendConns[lowestAddr]++
 
+				url := r.URL
+				url.Host = lowestAddr
+
+				req, err := http.NewRequestWithContext(connCtx, r.Method, url.String(), r.Body)
+				if err != nil {
+					http.Error(w, fmt.Sprintf("Proxy error: %v", err), http.StatusInternalServerError)
 					b.mutex.Unlock()
-
-					// FIXME need to use http.Transport properly to do connection tracking
-					// properly. net/http will get in the way.
-					defer b.decrementCount(ctx, lowestAddr)
-					resp, err := http.DefaultClient.Do(req)
-					if err != nil {
-						http.Error(w, fmt.Sprintf("Proxy error: %v", err), http.StatusInternalServerError)
-						return
-					}
-
-					defer resp.Body.Close()
-
-					if _, err := io.Copy(w, resp.Body); err != nil && !errors.Is(err, net.ErrClosed) {
-						http.Error(w, fmt.Sprintf("Early close in body copy: %v", err), http.StatusInternalServerError)
-						return
-					}
-
-					w.WriteHeader(resp.StatusCode)
-				} else {
-					goto retry
+					return
 				}
+
+				req.Header = headers
+
+				b.mutex.Unlock()
+
+				// FIXME need to use http.Transport properly to do connection tracking
+				// properly. net/http will get in the way.
+				go b.decrementCount(connCtx, lowestAddr)
+
+				resp, err := http.DefaultClient.Do(req)
+				if err != nil {
+					http.Error(w, fmt.Sprintf("Proxy error: %v", err), http.StatusInternalServerError)
+					return
+				}
+
+				r.Body.Close()
+				defer resp.Body.Close()
+
+				if _, err := io.Copy(w, resp.Body); err != nil && !errors.Is(err, net.ErrClosed) {
+					http.Error(w, fmt.Sprintf("Early close in body copy: %v", err), http.StatusInternalServerError)
+					return
+				}
+
+				w.WriteHeader(resp.StatusCode)
+			} else {
+				goto retry
 			}
 		}
 	}
