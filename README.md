@@ -58,7 +58,7 @@ Border is trying to pack a lot of features and not just be a simple tool. We
 are dedicated to bringing a richer experience to fronting websites for
 administrators.
 
-- [ ] Provides TCP and HTTP Load Balancing
+- [x] Provides TCP and HTTP Load Balancing
 - [ ] TLS Termination
 - [ ] Load Balancing of less typical DNS situations, such as SRV records (think tools like Samba or LDAP).
 - [ ] Healthchecks are a part of DNS, and when a health check is failed, DNS is automatically adjusted.
