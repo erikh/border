@@ -46,6 +46,7 @@ func TestTCPIntegrationNginx(t *testing.T) {
 		},
 		SimultaneousConnections:  65535,
 		MaxConnectionsPerAddress: 65535,
+		ConnectionTimeout:        30 * time.Second,
 	}
 
 	d := duct.New(duct.Manifest{

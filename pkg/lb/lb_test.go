@@ -80,7 +80,7 @@ func TestTCPTimeout(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	t.Cleanup(func() { balancer.Shutdown() })
+	t.Cleanup(balancer.Shutdown)
 
 	u, err := url.Parse(fmt.Sprintf("http://%s", balancer.listener.Addr()))
 	if err != nil {
@@ -162,7 +162,7 @@ func TestTCP(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	t.Cleanup(func() { balancer.Shutdown() })
+	t.Cleanup(balancer.Shutdown)
 
 	u, err := url.Parse(fmt.Sprintf("http://%s", balancer.listener.Addr()))
 	if err != nil {
