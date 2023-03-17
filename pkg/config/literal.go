@@ -54,8 +54,10 @@ func (r *Record) parseLiteral() error {
 // If you're having trouble with it, change it.
 func typeAssert(typ reflect.Type, literal any, value reflect.Value) error {
 	switch typ.Kind() {
-	case reflect.Pointer, reflect.Interface:
+	case reflect.Pointer:
 		return typeAssert(typ.Elem(), literal, value)
+	case reflect.Interface:
+		return typeAssert(reflect.TypeOf(value), literal, value)
 	case reflect.Array, reflect.Slice:
 		switch reflect.TypeOf(literal).Kind() {
 		case reflect.Array, reflect.Slice:
@@ -81,6 +83,10 @@ func typeAssert(typ reflect.Type, literal any, value reflect.Value) error {
 			return fmt.Errorf("literal is %T, value is map; data mismatch", literal)
 		}
 
+		if value.IsZero() {
+			value.Set(reflect.MakeMap(value.Type()))
+		}
+
 		literalVal := reflect.ValueOf(literal)
 
 		iter := literalVal.MapRange()
@@ -89,9 +95,7 @@ func typeAssert(typ reflect.Type, literal any, value reflect.Value) error {
 			key := iter.Key()
 			val := iter.Value()
 
-			if err := typeAssert(reflect.TypeOf(val.Interface()), val.Interface(), value.MapIndex(key.Elem())); err != nil {
-				return err
-			}
+			value.SetMapIndex(key, val.Elem())
 		}
 	case reflect.Struct:
 		var (
@@ -116,7 +120,26 @@ func typeAssert(typ reflect.Type, literal any, value reflect.Value) error {
 				return fmt.Errorf("While translating map to struct, key was not string, was %T", key.Interface())
 			}
 
-			if err := typeAssert(reflect.TypeOf(val.Interface()), val.Interface(), value.FieldByName(strKey)); err != nil {
+			valueTyp := reflect.TypeOf(value.Interface())
+			var (
+				rec        string
+				valueField reflect.Value
+			)
+
+			for i := 0; i < valueTyp.NumField(); i++ {
+				field := valueTyp.Field(i)
+				rec, ok = field.Tag.Lookup(RecordTag)
+				if ok && rec == strKey {
+					valueField = value.Field(i)
+					break
+				}
+			}
+
+			if !ok {
+				return fmt.Errorf("Inner struct %T for %q field did not have record tag", literal, strKey)
+			}
+
+			if err := typeAssert(reflect.TypeOf(val.Interface()), val.Interface(), valueField); err != nil {
 				return err
 			}
 		}

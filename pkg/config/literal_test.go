@@ -1,6 +1,7 @@
 package config
 
 import (
+	"reflect"
 	"testing"
 
 	"github.com/miekg/dns"
@@ -56,7 +57,7 @@ func TestLiteral(t *testing.T) {
 			},
 			"array": [2]any{int(1), int(1)},
 			"slice": []any{int(1), int(1), int(1)},
-			"map": map[any]any{
+			"map": map[string]any{
 				"int": int(1),
 			},
 		},
@@ -65,5 +66,74 @@ func TestLiteral(t *testing.T) {
 
 	if err := record.parseLiteral(); err != nil {
 		t.Fatal(err)
+	}
+
+	tr, ok := record.Value.(*testRecord)
+	if !ok {
+		t.Fatalf("record.Value was not *testRecord, was %T", record.Value)
+	}
+
+	if tr.Int != int(1) {
+		t.Fatalf("int was not set properly")
+	}
+
+	if tr.Int8 != int8(1) {
+		t.Fatalf("int8 was not set properly")
+	}
+
+	if tr.Int16 != int16(1) {
+		t.Fatalf("int16 was not set properly")
+	}
+
+	if tr.Int32 != int32(1) {
+		t.Fatalf("int32 was not set properly")
+	}
+
+	if tr.Int64 != int64(1) {
+		t.Fatalf("int64 was not set properly")
+	}
+
+	if tr.Uint != uint(1) {
+		t.Fatalf("uint was not set properly")
+	}
+
+	if tr.Uint8 != uint8(1) {
+		t.Fatalf("uint8 was not set properly")
+	}
+
+	if tr.Uint16 != uint16(1) {
+		t.Fatalf("uint16 was not set properly")
+	}
+
+	if tr.Uint32 != uint32(1) {
+		t.Fatalf("uint32 was not set properly")
+	}
+
+	if tr.Uint64 != uint64(1) {
+		t.Fatalf("uint64 was not set properly")
+	}
+
+	if tr.Uintptr != uintptr(1) {
+		t.Fatalf("uintptr was not set properly")
+	}
+
+	if tr.String != "a string" {
+		t.Fatalf("string was not set properly")
+	}
+
+	if !reflect.DeepEqual(tr.Struct, testStructRecord{Int: 1}) {
+		t.Fatalf("struct was not set properly: %v", tr.Struct)
+	}
+
+	if !reflect.DeepEqual(tr.Array, [2]int{1, 1}) {
+		t.Fatalf("array was not set properly: %v", tr.Array)
+	}
+
+	if !reflect.DeepEqual(tr.Slice, []int{1, 1, 1}) {
+		t.Fatalf("slice was not set properly: %v", tr.Slice)
+	}
+
+	if !reflect.DeepEqual(tr.Map, map[string]int{"int": 1}) {
+		t.Fatalf("map was not set properly: %v", tr.Map)
 	}
 }
