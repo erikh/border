@@ -10,7 +10,7 @@ import (
 const RecordTag = "record"
 
 func (r *Record) parseLiteral() error {
-	typ := reflect.TypeOf(r.Value)
+	typ := reflect.TypeOf(r.Value).Elem()
 
 	if typ.Kind() != reflect.Struct {
 		return fmt.Errorf("Value (%T) is not struct, is %v; should be struct", r.Value, typ)
@@ -40,8 +40,9 @@ func (r *Record) parseLiteral() error {
 		}
 
 		if ok {
-			if err := typeAssert(typ, literal, reflect.ValueOf(r.Value).Field(i).Addr()); err != nil {
-				return fmt.Errorf("Error while converting literal %q to type %q: %v", tag, typ.Name(), err)
+			valueField := reflect.ValueOf(r.Value).Elem().Field(i)
+			if err := typeAssert(valueField.Type(), literal, valueField); err != nil {
+				return fmt.Errorf("Error while converting literal %q to type %q: %v", tag, valueField.Type().Name(), err)
 			}
 		}
 	}
@@ -66,11 +67,12 @@ func typeAssert(typ reflect.Type, literal any, value reflect.Value) error {
 
 		if typ.Kind() == reflect.Slice {
 			value.Grow(literalVal.Len() - value.Len())
+			value.SetLen(literalVal.Len())
 		}
 
 		for i := 0; i < literalVal.Len(); i++ {
 			idx := value.Index(i)
-			if err := typeAssert(reflect.TypeOf(idx), literalVal.Index(i), idx); err != nil {
+			if err := typeAssert(reflect.TypeOf(idx.Interface()), literalVal.Index(i).Interface(), idx); err != nil {
 				return err
 			}
 		}
@@ -87,18 +89,23 @@ func typeAssert(typ reflect.Type, literal any, value reflect.Value) error {
 			key := iter.Key()
 			val := iter.Value()
 
-			if err := typeAssert(reflect.TypeOf(val), val, value.MapIndex(key)); err != nil {
+			if err := typeAssert(reflect.TypeOf(val.Interface()), val.Interface(), value.MapIndex(key.Elem())); err != nil {
 				return err
 			}
 		}
 	case reflect.Struct:
-		if reflect.TypeOf(literal).Kind() != reflect.Map {
-			return fmt.Errorf("literal is %T, value is struct; data mismatch", literal)
+		var (
+			literalVal reflect.Value
+			iter       *reflect.MapIter
+		)
+
+		switch literal.(type) {
+		case map[string]any:
+			literalVal = reflect.ValueOf(literal)
+			iter = literalVal.MapRange()
+		default:
+			return fmt.Errorf("literal was expected to be map[string]any but is %T", literal)
 		}
-
-		literalVal := reflect.ValueOf(literal)
-
-		iter := literalVal.MapRange()
 
 		for iter.Next() {
 			key := iter.Key()
@@ -109,7 +116,7 @@ func typeAssert(typ reflect.Type, literal any, value reflect.Value) error {
 				return fmt.Errorf("While translating map to struct, key was not string, was %T", key.Interface())
 			}
 
-			if err := typeAssert(reflect.TypeOf(val), val, value.FieldByName(strKey)); err != nil {
+			if err := typeAssert(reflect.TypeOf(val.Interface()), val.Interface(), value.FieldByName(strKey)); err != nil {
 				return err
 			}
 		}
