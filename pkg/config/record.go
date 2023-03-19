@@ -1,14 +1,10 @@
 package config
 
 import (
-	"errors"
 	"fmt"
-	"net"
 	"strings"
-	"time"
 
 	"github.com/erikh/border/pkg/dnsconfig"
-	"github.com/erikh/border/pkg/lb"
 )
 
 type Record struct {
@@ -100,100 +96,22 @@ func (c *Config) convertLiterals() error {
 		for _, r := range z.Records {
 			switch r.Type {
 			case dnsconfig.TypeA:
-				orig, ok := r.LiteralValue["addresses"]
-				if !ok || len(orig.([]any)) == 0 {
-					return fmt.Errorf("No addresses for %q A record", r.Name)
-				}
-
-				addresses := []net.IP{}
-
-				for _, addr := range r.LiteralValue["addresses"].([]any) {
-					addresses = append(addresses, net.ParseIP(addr.(string)))
-				}
-
-				var ttl uint32
-				origTTL, ok := r.LiteralValue["ttl"]
-
-				if ok {
-					ttl = uint32(origTTL.(float64))
-				} else {
-					ttl = z.SOA.MinTTL
-				}
-
-				r.Value = &dnsconfig.A{
-					Addresses: addresses,
-					TTL:       ttl,
-				}
+				a := &dnsconfig.A{}
+				a.TTL = z.SOA.MinTTL
+				r.Value = a
 			case dnsconfig.TypeLB:
-				listeners := []string{}
+				lb := &dnsconfig.LB{}
+				lb.TTL = z.SOA.MinTTL
+				lb.MaxConnectionsPerAddress = dnsconfig.DefaultMaxConnectionsPerAddress
+				lb.SimultaneousConnections = dnsconfig.DefaultSimultaneousConnections
 
-				for _, listener := range r.LiteralValue["listeners"].([]any) {
-					host, port, err := net.SplitHostPort(listener.(string))
-					if err != nil {
-						return fmt.Errorf("Could not parse listener %q: %v", listener, err)
-					}
-
-					peer, ok := c.Peers[host]
-					if !ok {
-						return fmt.Errorf("Peer %q does not exist in peers list", host)
-					}
-
-					listeners = append(listeners, net.JoinHostPort(peer.IP.String(), port))
-				}
-
-				kind, ok := r.LiteralValue["kind"].(string)
-				if !ok {
-					return errors.New("kind was not specified in LB record")
-				}
-
-				switch kind {
-				case lb.BalanceTCP:
-				default:
-					return fmt.Errorf("Kind was invalid: %q", kind)
-				}
-
-				backends := []string{}
-
-				tmp, ok := r.LiteralValue["backends"].([]any)
-				if !ok {
-					return errors.New("lb backends were unspecified or invalid")
-				}
-
-				for _, t := range tmp {
-					backends = append(backends, t.(string))
-				}
-
-				timeout, ok := r.LiteralValue["connection_timeout"].(time.Duration)
-				if !ok {
-					timeout = 0
-				}
-
-				sc, ok := r.LiteralValue["simultaneous_connections"].(int)
-				if !ok {
-					sc = dnsconfig.DefaultSimultaneousConnections
-				}
-
-				mc, ok := r.LiteralValue["max_connections_per_address"].(int)
-				if !ok {
-					mc = dnsconfig.DefaultMaxConnectionsPerAddress
-				}
-
-				ttl, ok := r.LiteralValue["ttl"].(uint32)
-				if !ok {
-					ttl = z.SOA.MinTTL
-				}
-
-				r.Value = &dnsconfig.LB{
-					Listeners:                listeners,
-					Kind:                     kind,
-					Backends:                 backends,
-					SimultaneousConnections:  sc,
-					MaxConnectionsPerAddress: mc,
-					ConnectionTimeout:        timeout,
-					TTL:                      ttl,
-				}
+				r.Value = lb
 			default:
 				return fmt.Errorf("invalid type for record %q", r.Name)
+			}
+
+			if err := r.parseLiteral(); err != nil {
+				return fmt.Errorf("Error parsing record %q: %v", r.Name, err)
 			}
 		}
 	}

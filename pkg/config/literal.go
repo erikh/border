@@ -3,6 +3,7 @@ package config
 import (
 	"errors"
 	"fmt"
+	"net"
 	"reflect"
 	"strings"
 )
@@ -34,6 +35,8 @@ func (r *Record) parseLiteral() error {
 			}
 		}
 
+		tag = parts[0]
+
 		literal, ok := r.LiteralValue[tag]
 		if !ok && !optional {
 			return fmt.Errorf("Could not find required literal value in config: %v", tag)
@@ -42,7 +45,7 @@ func (r *Record) parseLiteral() error {
 		if ok {
 			valueField := reflect.ValueOf(r.Value).Elem().Field(i)
 			if err := typeAssert(valueField.Type(), literal, valueField); err != nil {
-				return fmt.Errorf("Error while converting literal %q to type %q: %v", tag, valueField.Type().Name(), err)
+				return fmt.Errorf("Error while converting literal %q: %v", tag, err)
 			}
 		}
 	}
@@ -61,6 +64,20 @@ func typeAssert(typ reflect.Type, literal any, value reflect.Value) error {
 	case reflect.Array, reflect.Slice:
 		switch reflect.TypeOf(literal).Kind() {
 		case reflect.Array, reflect.Slice:
+			switch fmt.Sprintf("%T", value.Interface()) { // going to hell for this
+			case "[]net.IP":
+				ips := []net.IP{}
+
+				switch lit := literal.(type) {
+				case []string:
+					for _, str := range lit {
+						ips = append(ips, net.ParseIP(str))
+					}
+
+					return typeAssert(value.Type(), ips, value)
+				}
+			}
+
 		default:
 			return fmt.Errorf("literal is %T, value is array or slice; data mismatch", literal)
 		}

@@ -23,13 +23,13 @@ type Record interface {
 }
 
 type SOA struct {
-	Domain  string `json:"domain"`
-	Admin   string `json:"admin"`
-	MinTTL  uint32 `json:"minttl"`
-	Serial  uint32 `json:"serial"`
-	Refresh uint32 `json:"refresh"`
-	Retry   uint32 `json:"retry"`
-	Expire  uint32 `json:"expire"`
+	Domain  string `record:"domain"`
+	Admin   string `record:"admin"`
+	MinTTL  uint32 `record:"minttl"`
+	Serial  uint32 `record:"serial"`
+	Refresh uint32 `record:"refresh"`
+	Retry   uint32 `record:"retry"`
+	Expire  uint32 `record:"expire"`
 }
 
 func (soa *SOA) Convert(name string) []dns.RR {
@@ -51,8 +51,8 @@ func (soa *SOA) Convert(name string) []dns.RR {
 }
 
 type A struct {
-	Addresses []net.IP `json:"addresses"`
-	TTL       uint32   `json:"ttl"`
+	Addresses []net.IP `record:"addresses"`
+	TTL       uint32   `record:"ttl,optional"`
 }
 
 func (a *A) Convert(name string) []dns.RR {
@@ -73,8 +73,8 @@ func (a *A) Convert(name string) []dns.RR {
 }
 
 type NS struct {
-	Servers []string `json:"servers"`
-	TTL     uint32   `json:"ttl"`
+	Servers []string `record:"servers"`
+	TTL     uint32   `record:"ttl,optional"`
 }
 
 func (ns *NS) Convert(name string) []dns.RR {
@@ -100,13 +100,13 @@ const (
 )
 
 type LB struct {
-	Listeners                []string      `json:"listeners"`
-	Kind                     string        `json:"kind"`
-	Backends                 []string      `json:"backends"`
-	SimultaneousConnections  int           `json:"simultaneous_connections"`
-	MaxConnectionsPerAddress int           `json:"max_connections_per_address"`
-	ConnectionTimeout        time.Duration `json:"connection_timeout"`
-	TTL                      uint32        `json:"ttl"`
+	Listeners                []string      `record:"listeners"`
+	Kind                     string        `record:"kind"`
+	Backends                 []string      `record:"backends"`
+	SimultaneousConnections  int           `record:"simultaneous_connections,optional"`
+	MaxConnectionsPerAddress int           `record:"max_connections_per_address,optional"`
+	ConnectionTimeout        time.Duration `record:"connection_timeout,optional"`
+	TTL                      uint32        `record:"ttl,optional"`
 }
 
 func (lb *LB) Convert(name string) []dns.RR {
