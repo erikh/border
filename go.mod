@@ -20,6 +20,7 @@ require (
 	github.com/docker/go-units v0.4.0 // indirect
 	github.com/erikh/duct v0.3.0 // indirect
 	github.com/erikh/go-makeload v0.1.0 // indirect
+	github.com/erikh/ping v0.0.0-20141209185752-d731d249e12a // indirect
 	github.com/fsouza/go-dockerclient v1.6.6 // indirect
 	github.com/gogo/protobuf v1.3.1 // indirect
 	github.com/golang/protobuf v1.3.3 // indirect
