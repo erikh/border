@@ -48,7 +48,7 @@ func (hc *HealthCheckAction) runCheck() error {
 		}
 
 		if !ping.Ping(&net.IPAddr{IP: ip}, hc.Check.Timeout) {
-			return fmt.Errorf("Failed to ping IP %q", hc.Check.Target)
+			return fmt.Errorf("Failed to ping address %q", hc.Check.Target)
 		}
 	default:
 		return fmt.Errorf("Invalid health check type %q: please adjust your configuration", hc.Check.Type)
