@@ -38,8 +38,6 @@ type HealthChecker struct {
 }
 
 func (hc *HealthCheckAction) runCheck() error {
-	// FIXME adjust to accept a call back of what to do when the check fails
-
 	switch hc.Check.Type {
 	case TypePing:
 		ip := net.ParseIP(hc.Check.Target)
