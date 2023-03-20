@@ -33,7 +33,7 @@ type HealthChecker struct {
 	HealthChecks []HealthCheckAction
 	Failures     []int
 
-	timer *time.Timer
+	timer *time.Ticker
 	mutex sync.RWMutex
 }
 
@@ -57,13 +57,13 @@ func (hc *HealthCheckAction) runCheck() error {
 	return nil
 }
 
-func Init(checks []HealthCheckAction) *HealthChecker {
+func Init(checks []HealthCheckAction, minDuration time.Duration) *HealthChecker {
 	failures := make([]int, len(checks))
 
 	return &HealthChecker{
 		HealthChecks: checks,
 		Failures:     failures,
-		timer:        time.NewTimer(time.Second),
+		timer:        time.NewTicker(minDuration),
 	}
 }
 
@@ -95,11 +95,12 @@ func (hcr *HealthChecker) Run(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
+			hcr.timer.Stop()
 			return
 		case <-hcr.timer.C:
 		}
 
-		go hcr.runChecks()
+		hcr.runChecks()
 
 		hcr.mutex.RLock()
 		for i, failures := range hcr.Failures {
@@ -109,6 +110,6 @@ func (hcr *HealthChecker) Run(ctx context.Context) {
 				}
 			}
 		}
-		hcr.mutex.Unlock()
+		hcr.mutex.RUnlock()
 	}
 }

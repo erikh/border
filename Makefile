@@ -6,4 +6,4 @@ test:
 
 test-integration:
 	docker build -t border .
-	docker run -it border
+	docker run --cap-add NET_ADMIN -it border
