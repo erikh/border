@@ -77,7 +77,17 @@ func typeAssert(typ reflect.Type, literal any, value reflect.Value) error {
 					return typeAssert(value.Type(), ips, value)
 				}
 			}
-
+		case reflect.String:
+			switch fmt.Sprintf("%T", value.Interface()) { // going to hell for this
+			case "net.IP": // net.IP is a []byte under the hood, need to account for the fall-through here
+				switch lit := literal.(type) {
+				case string:
+					ip := net.ParseIP(lit)
+					return typeAssert(value.Type(), ip, value)
+				default:
+					return fmt.Errorf("literal is %T, value is net.IP; data mismatch", literal)
+				}
+			}
 		default:
 			return fmt.Errorf("literal is %T, value is array or slice; data mismatch", literal)
 		}

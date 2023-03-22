@@ -98,6 +98,7 @@ func (c *Config) convertLiterals() error {
 			case dnsconfig.TypeA:
 				a := &dnsconfig.A{}
 				a.TTL = z.SOA.MinTTL
+
 				r.Value = a
 			case dnsconfig.TypeLB:
 				lb := &dnsconfig.LB{}
