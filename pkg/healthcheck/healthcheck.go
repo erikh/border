@@ -31,7 +31,7 @@ func (hc *HealthCheck) SetTarget(target string) {
 
 type HealthCheckAction struct {
 	Check  *HealthCheck
-	Action func() error
+	Action func(*HealthCheck) error
 }
 
 type HealthChecker struct {
@@ -120,7 +120,7 @@ func (hcr *HealthChecker) run(ctx context.Context) {
 		hcr.mutex.RLock()
 		for i, failures := range hcr.Failures {
 			if failures >= hcr.HealthChecks[i].Check.Failures {
-				if err := hcr.HealthChecks[i].Action(); err != nil {
+				if err := hcr.HealthChecks[i].Action(hcr.HealthChecks[i].Check); err != nil {
 					log.Printf("Triggered action on failed health check for %q also failed: %v", hcr.HealthChecks[i].Check.Name, err)
 				}
 			}

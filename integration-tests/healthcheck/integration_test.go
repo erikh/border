@@ -30,7 +30,7 @@ func TestHealthCheck(t *testing.T) {
 	hcr := hc.Init([]hc.HealthCheckAction{
 		{
 			Check: check,
-			Action: func() error {
+			Action: func(*hc.HealthCheck) error {
 				successful.Store(false)
 				return nil
 			},
