@@ -86,6 +86,6 @@ func TestHealthCheck(t *testing.T) {
 	time.Sleep(time.Second)
 
 	if !successful.Load() {
-		t.Fatal("Health check did not succeed after re-init")
+		t.Fatal("Health check did not succeed after revive")
 	}
 }
