@@ -77,7 +77,7 @@ func (s *Server) createBalancers(peerName string, c *config.Config) ([]*lb.Balan
 				for _, listener := range lbRecord.Listeners {
 					host, port, err := net.SplitHostPort(listener)
 					if err != nil {
-						return nil, fmt.Errorf("Invalid listener %q: could not parse: %v", listener, err)
+						return nil, fmt.Errorf("Invalid listener %q (is it listed as a peer?): could not parse: %v", listener, err)
 					}
 
 					// overwrite the listener peer record with the IP:port internally,

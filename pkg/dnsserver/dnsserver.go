@@ -6,6 +6,7 @@ import (
 
 	"github.com/erikh/border/pkg/config"
 	"github.com/erikh/border/pkg/dnsconfig"
+
 	"github.com/miekg/dns"
 )
 
