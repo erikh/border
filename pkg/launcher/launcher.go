@@ -3,6 +3,7 @@ package launcher
 import (
 	"context"
 	"fmt"
+	"log"
 	"net"
 	"time"
 
@@ -127,5 +128,46 @@ func (s *Server) createBalancers(peerName string, c *config.Config) ([]*lb.Balan
 }
 
 func (s *Server) buildHealthChecks(c *config.Config) (*healthcheck.HealthChecker, error) {
+	checks := []*healthcheck.HealthCheckAction{}
+
+	for _, zone := range c.Zones {
+		for _, rec := range zone.Records {
+			switch rec.Type {
+			case dnsconfig.TypeA:
+				aRecord := rec.Value.(*dnsconfig.A)
+
+				for _, check := range aRecord.HealthCheck {
+					for _, ip := range aRecord.Addresses {
+						newCheck := check.Copy()
+						newCheck.SetTarget(ip.String())
+
+						checks = append(checks, &healthcheck.HealthCheckAction{
+							Check: newCheck,
+							FailedAction: func(check *healthcheck.HealthCheck) error {
+								log.Printf("Health Check for %q (name: %q) failed: pruning A record", newCheck.Target(), newCheck.Name)
+								ips := []net.IP{}
+
+								for _, ip := range aRecord.Addresses {
+									if ip.String() != check.Target() {
+										ips = append(ips, ip)
+									}
+								}
+
+								aRecord.Addresses = ips
+								return nil
+							},
+							ReviveAction: func(check *healthcheck.HealthCheck) error {
+								log.Printf("Health Check for %q (name: %q) revived: adjusting A record", newCheck.Target(), newCheck.Name)
+
+								aRecord.Addresses = append(aRecord.Addresses, net.ParseIP(check.Target()))
+								return nil
+							},
+						})
+					}
+				}
+			case dnsconfig.TypeLB:
+			}
+		}
+	}
 	return nil, nil
 }

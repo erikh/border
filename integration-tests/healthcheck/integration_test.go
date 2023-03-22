@@ -30,31 +30,41 @@ func TestHealthCheck(t *testing.T) {
 	hcr := hc.Init([]hc.HealthCheckAction{
 		{
 			Check: check,
-			Action: func(*hc.HealthCheck) error {
+			FailedAction: func(*hc.HealthCheck) error {
 				successful.Store(false)
+				return nil
+			},
+			ReviveAction: func(*hc.HealthCheck) error {
+				successful.Store(true)
 				return nil
 			},
 		},
 	}, 100*time.Millisecond)
 
 	// create a new interface with an IP address. this should only happen in docker!
+
 	attrs := netlink.NewLinkAttrs()
 	attrs.Name = "ping-frontend"
 	veth := &netlink.Veth{LinkAttrs: attrs, PeerName: "ping-backend"}
-	if err := netlink.LinkAdd(veth); err != nil {
-		t.Fatalf("While creating test link: %v", err)
+
+	pingCreate := func(t *testing.T) {
+		if err := netlink.LinkAdd(veth); err != nil {
+			t.Fatalf("While creating test link: %v", err)
+		}
+
+		if err := netlink.AddrAdd(veth, &netlink.Addr{IPNet: netlink.NewIPNet(net.ParseIP("11.1.0.1"))}); err != nil {
+			t.Fatalf("While adding address to test link: %v", err)
+		}
+
+		if err := netlink.LinkSetUp(veth); err != nil {
+			t.Fatalf("While raising test link: %v", err)
+		}
 	}
 
-	if err := netlink.AddrAdd(veth, &netlink.Addr{IPNet: netlink.NewIPNet(net.ParseIP("11.1.0.1"))}); err != nil {
-		t.Fatalf("While adding address to test link: %v", err)
-	}
+	pingCreate(t)
 
-	if err := netlink.LinkSetUp(veth); err != nil {
-		t.Fatalf("While raising test link: %v", err)
-	}
-
-	pingCleanup := func() { netlink.LinkDel(veth) }
-	t.Cleanup(pingCleanup)
+	pingDestroy := func() { netlink.LinkDel(veth) }
+	t.Cleanup(pingDestroy)
 	t.Cleanup(hcr.Shutdown)
 
 	go hcr.Start()
@@ -65,10 +75,17 @@ func TestHealthCheck(t *testing.T) {
 		t.Fatal("Health check did not succeed")
 	}
 
-	pingCleanup()
+	pingDestroy()
 	time.Sleep(time.Second)
 
 	if successful.Load() {
 		t.Fatal("Health check did not fail")
+	}
+
+	pingCreate(t)
+	time.Sleep(time.Second)
+
+	if !successful.Load() {
+		t.Fatal("Health check did not succeed after re-init")
 	}
 }

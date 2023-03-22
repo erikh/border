@@ -25,6 +25,16 @@ type HealthCheck struct {
 	target string
 }
 
+// Copies the health check without duplicating the target.
+func (hc *HealthCheck) Copy() *HealthCheck {
+	return &HealthCheck{
+		Name:     hc.Name,
+		Type:     hc.Type,
+		Timeout:  hc.Timeout,
+		Failures: hc.Failures,
+	}
+}
+
 func (hc *HealthCheck) SetTarget(target string) {
 	hc.target = target
 }
@@ -34,8 +44,9 @@ func (hc *HealthCheck) Target() string {
 }
 
 type HealthCheckAction struct {
-	Check  *HealthCheck
-	Action func(*HealthCheck) error
+	Check        *HealthCheck
+	FailedAction func(*HealthCheck) error
+	ReviveAction func(*HealthCheck) error
 }
 
 type HealthChecker struct {
@@ -88,8 +99,20 @@ func (hcr *HealthChecker) runChecks() {
 				hcr.Failures[i]++
 				hcr.mutex.Unlock()
 			} else {
+				hcr.mutex.RLock()
+				if hcr.Failures[i] > 0 {
+					log.Printf("%q revived on target %q", check.Check.Name, check.Check.Target())
+
+					if err := check.ReviveAction(check.Check); err != nil {
+						log.Printf("Error while reviving record %q (name: %q): %v", check.Check.Target(), check.Check.Name, err)
+					}
+				}
+				hcr.mutex.RUnlock()
+
+				hcr.mutex.Lock()
 				// should have some back-off code here to detect flapping things
 				hcr.Failures[i] = 0
+				hcr.mutex.Unlock()
 			}
 			finished.Done()
 		}(i)
@@ -124,7 +147,7 @@ func (hcr *HealthChecker) run(ctx context.Context) {
 		hcr.mutex.RLock()
 		for i, failures := range hcr.Failures {
 			if failures >= hcr.HealthChecks[i].Check.Failures {
-				if err := hcr.HealthChecks[i].Action(hcr.HealthChecks[i].Check); err != nil {
+				if err := hcr.HealthChecks[i].FailedAction(hcr.HealthChecks[i].Check); err != nil {
 					log.Printf("Triggered action on failed health check for %q also failed: %v", hcr.HealthChecks[i].Check.Name, err)
 				}
 			}

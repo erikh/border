@@ -52,9 +52,9 @@ func (soa *SOA) Convert(name string) []dns.RR {
 }
 
 type A struct {
-	Addresses   []net.IP                  `record:"addresses"`
-	TTL         uint32                    `record:"ttl,optional"`
-	HealthCheck []healthcheck.HealthCheck `record:"healthcheck,optional"`
+	Addresses   []net.IP                   `record:"addresses"`
+	TTL         uint32                     `record:"ttl,optional"`
+	HealthCheck []*healthcheck.HealthCheck `record:"healthcheck,optional"`
 }
 
 func (a *A) Convert(name string) []dns.RR {
@@ -102,14 +102,14 @@ const (
 )
 
 type LB struct {
-	Listeners                []string                  `record:"listeners"`
-	Kind                     string                    `record:"kind"`
-	Backends                 []string                  `record:"backends"`
-	SimultaneousConnections  int                       `record:"simultaneous_connections,optional"`
-	MaxConnectionsPerAddress int                       `record:"max_connections_per_address,optional"`
-	ConnectionTimeout        time.Duration             `record:"connection_timeout,optional"`
-	TTL                      uint32                    `record:"ttl,optional"`
-	HealthCheck              []healthcheck.HealthCheck `record:"healthcheck,optional"`
+	Listeners                []string                   `record:"listeners"`
+	Kind                     string                     `record:"kind"`
+	Backends                 []string                   `record:"backends"`
+	SimultaneousConnections  int                        `record:"simultaneous_connections,optional"`
+	MaxConnectionsPerAddress int                        `record:"max_connections_per_address,optional"`
+	ConnectionTimeout        time.Duration              `record:"connection_timeout,optional"`
+	TTL                      uint32                     `record:"ttl,optional"`
+	HealthCheck              []*healthcheck.HealthCheck `record:"healthcheck,optional"`
 }
 
 func (lb *LB) Convert(name string) []dns.RR {
