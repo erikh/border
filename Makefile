@@ -1,7 +1,7 @@
 all: test
 
 test:
-	go test -v ./pkg/...
+	go test -v ./...
 	make test-integration
 
 test-integration:

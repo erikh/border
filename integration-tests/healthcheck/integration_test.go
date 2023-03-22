@@ -7,11 +7,16 @@ import (
 	"testing"
 	"time"
 
+	"github.com/erikh/border/integration-tests"
 	hc "github.com/erikh/border/pkg/healthcheck"
 	"github.com/vishvananda/netlink"
 )
 
 func TestHealthCheck(t *testing.T) {
+	if !integration.RequireDocker(t) {
+		return
+	}
+
 	var successful atomic.Bool
 	successful.Store(true)
 
