@@ -217,6 +217,8 @@ func typeAssert(typ reflect.Type, literal any, value reflect.Value) error {
 
 						value.Set(reflect.ValueOf(duration))
 					}
+				case time.Duration:
+					value.Set(reflect.ValueOf(typ))
 				default:
 					value.Set(reflect.ValueOf(literal.(int64)))
 				}
