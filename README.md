@@ -61,7 +61,7 @@ administrators.
 - [x] Provides TCP and HTTP Load Balancing
 - [ ] TLS Termination
 - [ ] Load Balancing of less typical DNS situations, such as SRV records (think tools like Samba or LDAP).
-- [ ] Healthchecks are a part of DNS, and when a health check is failed, DNS is automatically adjusted.
+- [x] Health checks are a part of DNS, and when a health check is failed, DNS is automatically adjusted.
 - [ ] Zone Transfers do not use the unwieldy and frequently insecure AXFR
   protocol, instead opting for the protections provided by JOSE. Full
   configuration is synced, not just zones.
