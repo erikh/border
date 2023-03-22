@@ -45,10 +45,19 @@ func (s *Server) Launch(peerName string, c *config.Config) error {
 	s.control = cs
 	s.balancers = balancers
 
+	healthchecker, err := s.buildHealthChecks(c)
+	if err != nil {
+		return fmt.Errorf("While constructing health check subsystem: %w", err)
+	}
+
+	s.healthChecker = healthchecker
+
 	return nil
 }
 
 func (s *Server) Shutdown(ctx context.Context) error {
+	s.healthChecker.Shutdown()
+
 	if err := s.dns.Shutdown(); err != nil {
 		return fmt.Errorf("While terminating DNS server: %v", err)
 	}
@@ -166,8 +175,80 @@ func (s *Server) buildHealthChecks(c *config.Config) (*healthcheck.HealthChecker
 					}
 				}
 			case dnsconfig.TypeLB:
+				lbRecord := rec.Value.(*dnsconfig.LB)
+
+				for _, check := range lbRecord.HealthCheck {
+					for _, backend := range lbRecord.Backends {
+						newCheck := check.Copy()
+
+						host, _, err := net.SplitHostPort(backend)
+						if err != nil {
+							return nil, fmt.Errorf("While computing healthcheck records for load balancer backend %q: %w", backend, err)
+						}
+
+						newCheck.SetTarget(host)
+
+						checks = append(checks, &healthcheck.HealthCheckAction{
+							Check: newCheck,
+							FailedAction: func(check *healthcheck.HealthCheck) error {
+								log.Printf("Health Check for %q (name: %q) failed: pruning LB backend record", newCheck.Target(), newCheck.Name)
+								backends := []string{}
+
+								for _, be := range lbRecord.Backends {
+									if be != backend {
+										backends = append(backends, be)
+									}
+								}
+
+								lbRecord.Backends = backends
+								return nil
+							},
+							ReviveAction: func(check *healthcheck.HealthCheck) error {
+								log.Printf("Health Check for %q (name: %q) revived: adjusting LB record", newCheck.Target(), newCheck.Name)
+
+								lbRecord.Backends = append(lbRecord.Backends, backend)
+								return nil
+							},
+						})
+					}
+
+					for _, listener := range lbRecord.Listeners {
+
+						host, _, err := net.SplitHostPort(listener)
+						if err != nil {
+							return nil, fmt.Errorf("While computing healthcheck records for load balancer listener %q: %w", listener, err)
+						}
+
+						newCheck := check.Copy()
+						newCheck.SetTarget(host)
+
+						checks = append(checks, &healthcheck.HealthCheckAction{
+							Check: newCheck,
+							FailedAction: func(check *healthcheck.HealthCheck) error {
+								log.Printf("Health Check for %q (name: %q) failed: pruning LB backend record", newCheck.Target(), newCheck.Name)
+								listeners := []string{}
+
+								for _, lis := range lbRecord.Listeners {
+									if lis != listener {
+										listeners = append(listeners, lis)
+									}
+								}
+
+								lbRecord.Listeners = listeners
+								return nil
+							},
+							ReviveAction: func(check *healthcheck.HealthCheck) error {
+								log.Printf("Health Check for %q (name: %q) revived: adjusting LB record", newCheck.Target(), newCheck.Name)
+
+								lbRecord.Listeners = append(lbRecord.Listeners, listener)
+								return nil
+							},
+						})
+					}
+				}
 			}
 		}
 	}
-	return nil, nil
+
+	return healthcheck.Init(checks, time.Second), nil
 }

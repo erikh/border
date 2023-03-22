@@ -27,7 +27,7 @@ func TestHealthCheck(t *testing.T) {
 	}
 	check.SetTarget("11.1.0.1")
 
-	hcr := hc.Init([]hc.HealthCheckAction{
+	hcr := hc.Init([]*hc.HealthCheckAction{
 		{
 			Check: check,
 			FailedAction: func(*hc.HealthCheck) error {

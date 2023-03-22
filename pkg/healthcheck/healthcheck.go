@@ -50,7 +50,7 @@ type HealthCheckAction struct {
 }
 
 type HealthChecker struct {
-	HealthChecks []HealthCheckAction
+	HealthChecks []*HealthCheckAction
 	Failures     []int
 
 	timer      *time.Ticker
@@ -76,7 +76,7 @@ func (hc *HealthCheckAction) runCheck() error {
 	return nil
 }
 
-func Init(checks []HealthCheckAction, minDuration time.Duration) *HealthChecker {
+func Init(checks []*HealthCheckAction, minDuration time.Duration) *HealthChecker {
 	failures := make([]int, len(checks))
 
 	return &HealthChecker{
