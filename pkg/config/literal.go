@@ -6,6 +6,7 @@ import (
 	"net"
 	"reflect"
 	"strings"
+	"time"
 )
 
 const RecordTag = "record"
@@ -138,6 +139,15 @@ func typeAssert(typ reflect.Type, literal any, value reflect.Value) error {
 			return fmt.Errorf("literal was expected to be map[string]any but is %T", literal)
 		}
 
+		valueTyp := reflect.TypeOf(value.Interface())
+		if valueTyp.Kind() == reflect.Pointer {
+			valueTyp = valueTyp.Elem()
+			if value.IsNil() {
+				tmp := reflect.New(valueTyp)
+				value.Set(tmp)
+			}
+		}
+
 		for iter.Next() {
 			key := iter.Key()
 			val := iter.Value()
@@ -147,7 +157,6 @@ func typeAssert(typ reflect.Type, literal any, value reflect.Value) error {
 				return fmt.Errorf("While translating map to struct, key was not string, was %T", key.Interface())
 			}
 
-			valueTyp := reflect.TypeOf(value.Interface())
 			var (
 				rec        string
 				valueField reflect.Value
@@ -157,7 +166,11 @@ func typeAssert(typ reflect.Type, literal any, value reflect.Value) error {
 				field := valueTyp.Field(i)
 				rec, ok = field.Tag.Lookup(RecordTag)
 				if ok && rec == strKey {
-					valueField = value.Field(i)
+					if value.Type().Kind() == reflect.Pointer {
+						valueField = value.Elem().Field(i)
+					} else {
+						valueField = value.Field(i)
+					}
 					break
 				}
 			}
@@ -178,7 +191,54 @@ func typeAssert(typ reflect.Type, literal any, value reflect.Value) error {
 		return errors.New("Records with unsafe pointers are not supported. Change the type or fix the code.")
 	default:
 		if value.CanSet() {
-			value.Set(reflect.ValueOf(literal))
+			switch value.Kind() {
+			case reflect.Int:
+				switch typ := literal.(type) {
+				case float64:
+					value.Set(reflect.ValueOf(int(typ)))
+				default:
+					value.Set(reflect.ValueOf(int(typ.(int))))
+				}
+			case reflect.Int8:
+				value.Set(reflect.ValueOf(literal.(int8)))
+			case reflect.Int16:
+				value.Set(reflect.ValueOf(literal.(int16)))
+			case reflect.Int32:
+				value.Set(reflect.ValueOf(literal.(int32)))
+			case reflect.Int64:
+				switch typ := literal.(type) {
+				case string:
+					switch fmt.Sprintf("%T", value.Interface()) { // going to hell for this
+					case "time.Duration":
+						duration, err := time.ParseDuration(typ)
+						if err != nil {
+							return err
+						}
+
+						value.Set(reflect.ValueOf(duration))
+					}
+				default:
+					value.Set(reflect.ValueOf(literal.(int64)))
+				}
+			case reflect.Uint:
+				value.Set(reflect.ValueOf(literal.(uint)))
+			case reflect.Uint8:
+				value.Set(reflect.ValueOf(literal.(uint8)))
+			case reflect.Uint16:
+				value.Set(reflect.ValueOf(literal.(uint16)))
+			case reflect.Uint32:
+				value.Set(reflect.ValueOf(literal.(uint32)))
+			case reflect.Uint64:
+				value.Set(reflect.ValueOf(literal.(uint64)))
+			case reflect.Uintptr:
+				value.Set(reflect.ValueOf(literal.(uintptr)))
+			case reflect.Float32:
+				value.Set(reflect.ValueOf(literal.(float32)))
+			case reflect.Float64:
+				value.Set(reflect.ValueOf(literal.(float64)))
+			default:
+				value.Set(reflect.ValueOf(literal))
+			}
 		}
 	}
 

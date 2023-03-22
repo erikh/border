@@ -46,6 +46,19 @@ zones:
         value:
           addresses:
             - 127.0.0.1
+          healthcheck:
+            - timeout: 1s
+              failures: 3
+      # this A record will almost certainly fail to work, which means the
+      # record will be adjusted when the health check fails
+      - type: A
+        name: broken.test.home.arpa
+        value:
+          addresses:
+            - 11.1.0.1
+          healthcheck:
+            - timeout: 1s
+              failures: 3
       - type: LB
         name: balancer.test.home.arpa
         value:
@@ -55,3 +68,6 @@ zones:
             - 127.0.0.1:8001
             - 127.0.0.1:8002
           kind: tcp
+          healthcheck:
+            - timeout: 1s
+              failures: 3

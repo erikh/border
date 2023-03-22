@@ -51,6 +51,7 @@ func (s *Server) Launch(peerName string, c *config.Config) error {
 	}
 
 	s.healthChecker = healthchecker
+	s.healthChecker.Start()
 
 	return nil
 }
