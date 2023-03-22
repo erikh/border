@@ -124,8 +124,7 @@ func (ds *DNSServer) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 
 							for _, answer := range values {
 								switch a := answer.(type) {
-								// this is repeated because the assignment above is not smart
-								// enough in a multiple-value case statement
+								// filter the right records for the query type
 								case *dns.A:
 									if a.Hdr.Rrtype == typ {
 										answers = append(answers, answer)
