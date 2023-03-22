@@ -148,7 +148,12 @@ func (s *Server) buildHealthChecks(c *config.Config) (*healthcheck.HealthChecker
 				for _, check := range aRecord.HealthCheck {
 					for _, ip := range aRecord.Addresses {
 						newCheck := check.Copy()
+
 						newCheck.SetTarget(ip.String())
+
+						if newCheck.Name == "" {
+							newCheck.Name = rec.Name
+						}
 
 						checks = append(checks, &healthcheck.HealthCheckAction{
 							Check: newCheck,
@@ -186,6 +191,10 @@ func (s *Server) buildHealthChecks(c *config.Config) (*healthcheck.HealthChecker
 							return nil, fmt.Errorf("While computing healthcheck records for load balancer backend %q: %w", backend, err)
 						}
 
+						if newCheck.Name == "" {
+							newCheck.Name = rec.Name
+						}
+
 						newCheck.SetTarget(host)
 
 						checks = append(checks, &healthcheck.HealthCheckAction{
@@ -219,6 +228,11 @@ func (s *Server) buildHealthChecks(c *config.Config) (*healthcheck.HealthChecker
 						}
 
 						newCheck := check.Copy()
+
+						if newCheck.Name == "" {
+							newCheck.Name = rec.Name
+						}
+
 						newCheck.SetTarget(host)
 
 						checks = append(checks, &healthcheck.HealthCheckAction{
