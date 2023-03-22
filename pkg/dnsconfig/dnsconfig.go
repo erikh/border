@@ -140,7 +140,7 @@ func (lb *LB) Convert(name string) []dns.RR {
 			ret = append(ret, dns.RR(&dns.AAAA{
 				Hdr: dns.RR_Header{
 					Name:   name,
-					Rrtype: dns.TypeA,
+					Rrtype: dns.TypeAAAA,
 					Class:  dns.ClassINET,
 					Ttl:    lb.TTL,
 				},

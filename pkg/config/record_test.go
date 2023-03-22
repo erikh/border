@@ -21,7 +21,7 @@ func TestRecordParse(t *testing.T) {
 		Peers: map[string]*Peer{
 			"peer": {
 				Key: key,
-				IP:  net.ParseIP("127.0.0.1"),
+				IPs: []net.IP{net.ParseIP("127.0.0.1")},
 			},
 		},
 		Zones: map[string]*Zone{

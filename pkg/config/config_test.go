@@ -44,7 +44,7 @@ func TestMarshal(t *testing.T) {
 		Peers: map[string]*Peer{
 			"peer": {
 				Key: key,
-				IP:  net.ParseIP("127.0.0.1"),
+				IPs: []net.IP{net.ParseIP("127.0.0.1")},
 			},
 		},
 		Zones: map[string]*Zone{},
@@ -76,7 +76,7 @@ func TestMarshal(t *testing.T) {
 	// This is not an exhaustive comparison because I am a human being and will
 	// die eventually, and I don't want to spend the rest of my life adding shit
 	// here
-	if c.Listen.Control != c2.Listen.Control || c.Peers["peer"].IP.String() != c2.Peers["peer"].IP.String() || !reflect.DeepEqual(c.Peers["peer"].Key.Key, c2.Peers["peer"].Key.Key) {
+	if c.Listen.Control != c2.Listen.Control || !reflect.DeepEqual(c.Peers["peer"].IPs, c2.Peers["peer"].IPs) || !reflect.DeepEqual(c.Peers["peer"].Key.Key, c2.Peers["peer"].Key.Key) {
 		t.Logf("%#v - %#v", c, c2)
 		t.Fatal("loaded content did not equal saved")
 	}
@@ -96,7 +96,7 @@ func TestMarshal(t *testing.T) {
 	// This is not an exhaustive comparison because I am a human being and will
 	// die eventually, and I don't want to spend the rest of my life adding shit
 	// here
-	if c.Listen.Control != c2.Listen.Control || c.Peers["peer"].IP.String() != c2.Peers["peer"].IP.String() || !reflect.DeepEqual(c.Peers["peer"].Key.Key, c2.Peers["peer"].Key.Key) {
+	if c.Listen.Control != c2.Listen.Control || !reflect.DeepEqual(c.Peers["peer"].IPs, c2.Peers["peer"].IPs) || !reflect.DeepEqual(c.Peers["peer"].Key.Key, c2.Peers["peer"].Key.Key) {
 		t.Logf("%#v - %#v", c, c2)
 		t.Fatal("loaded content did not equal saved")
 	}

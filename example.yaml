@@ -23,7 +23,9 @@ peers:
       k: VbqOkBfoftuqk7_qzQse70AUScQJJGiR4JUfv-jHGIA
       kid: control
       kty: oct
-    ip: 127.0.0.1
+    ips:
+      - ::1
+      - 127.0.0.1
 # DNS zones. Note, the records coordinate to all services border provides.
 zones:
   test.home.arpa:

@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/erikh/border/pkg/config"
+	"github.com/erikh/border/pkg/dnsconfig"
 	"github.com/miekg/dns"
 )
 
@@ -102,7 +103,8 @@ func (ds *DNSServer) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 		zone := ds.findZone(name)
 
 		if zone != nil {
-			switch r.Question[0].Qtype {
+			typ := r.Question[0].Qtype
+			switch typ {
 			// SOA and NS are special because they are special records.
 			case dns.TypeSOA:
 				answers = zone.SOA.Convert(name)
@@ -111,7 +113,31 @@ func (ds *DNSServer) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 			default:
 				for _, rec := range zone.Records {
 					if rec.Name == name {
-						answers = rec.Value.Convert(name)
+						switch rec.Type {
+						case dnsconfig.TypeA:
+							// we don't want to deliver answers for non-A queries for these records.
+							if typ == dns.TypeA {
+								answers = rec.Value.Convert(name)
+							}
+						case dnsconfig.TypeLB:
+							values := rec.Value.Convert(name)
+
+							for _, answer := range values {
+								switch a := answer.(type) {
+								// this is repeated because the assignment above is not smart
+								// enough in a multiple-value case statement
+								case *dns.A:
+									if a.Hdr.Rrtype == typ {
+										answers = append(answers, answer)
+									}
+								case *dns.AAAA:
+									if a.Hdr.Rrtype == typ {
+										answers = append(answers, answer)
+									}
+								}
+							}
+						}
+
 						break
 					}
 				}

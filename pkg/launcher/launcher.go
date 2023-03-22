@@ -72,7 +72,9 @@ func (s *Server) createBalancers(peerName string, c *config.Config) ([]*lb.Balan
 					return nil, fmt.Errorf("LB record for %q was not parsed correctly", rec.Name)
 				}
 
-				for i, listener := range lbRecord.Listeners {
+				// normalize the listeners to IP:port. Expand the listeners if necessary.
+				newListeners := []string{}
+				for _, listener := range lbRecord.Listeners {
 					host, port, err := net.SplitHostPort(listener)
 					if err != nil {
 						return nil, fmt.Errorf("Invalid listener %q: could not parse: %v", listener, err)
@@ -80,25 +82,39 @@ func (s *Server) createBalancers(peerName string, c *config.Config) ([]*lb.Balan
 
 					// overwrite the listener peer record with the IP:port internally,
 					// this will probably bite me later but is a good solution for now.
-					hostIP := c.Peers[host].IP.String()
-					lbRecord.Listeners[i] = net.JoinHostPort(hostIP, port)
-					listener = lbRecord.Listeners[i]
+					hostIPs := []string{}
+					for _, ip := range c.Peers[host].IPs {
+						hostIPs = append(hostIPs, ip.String())
+						newListeners = append(newListeners, net.JoinHostPort(ip.String(), port))
+					}
+				}
 
-					if hostIP == c.Peers[peerName].IP.String() {
-						bc := lb.BalancerConfig{
-							Kind:                     lbRecord.Kind,
-							Backends:                 lbRecord.Backends,
-							SimultaneousConnections:  lbRecord.SimultaneousConnections,
-							MaxConnectionsPerAddress: lbRecord.MaxConnectionsPerAddress,
-							ConnectionTimeout:        lbRecord.ConnectionTimeout,
+				lbRecord.Listeners = newListeners
+
+				// second iteration, work with the IP addresses directly.
+				for _, listener := range lbRecord.Listeners {
+					host, _, err := net.SplitHostPort(listener)
+					if err != nil {
+						return nil, fmt.Errorf("Invalid listener %q: could not parse: %v", listener, err)
+					}
+
+					for _, ip := range c.Peers[peerName].IPs {
+						if host == ip.String() {
+							bc := lb.BalancerConfig{
+								Kind:                     lbRecord.Kind,
+								Backends:                 lbRecord.Backends,
+								SimultaneousConnections:  lbRecord.SimultaneousConnections,
+								MaxConnectionsPerAddress: lbRecord.MaxConnectionsPerAddress,
+								ConnectionTimeout:        lbRecord.ConnectionTimeout,
+							}
+
+							balancer := lb.Init(listener, bc)
+							if err := balancer.Start(); err != nil {
+								return nil, fmt.Errorf("Could not start balancer %q: %v", rec.Name, err)
+							}
+
+							balancers = append(balancers, balancer)
 						}
-
-						balancer := lb.Init(listener, bc)
-						if err := balancer.Start(); err != nil {
-							return nil, fmt.Errorf("Could not start balancer %q: %v", rec.Name, err)
-						}
-
-						balancers = append(balancers, balancer)
 					}
 				}
 			}

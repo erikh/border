@@ -39,7 +39,7 @@ type ListenConfig struct {
 }
 
 type Peer struct {
-	IP  net.IP           `json:"ip"`
+	IPs []net.IP         `json:"ips"`
 	Key *jose.JSONWebKey `json:"key"`
 }
 

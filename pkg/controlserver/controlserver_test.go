@@ -204,7 +204,7 @@ func TestPeerRegistration(t *testing.T) {
 	}
 
 	peer := &config.Peer{
-		IP:  net.ParseIP("127.0.0.1"),
+		IPs: []net.IP{net.ParseIP("127.0.0.1")},
 		Key: jwk,
 	}
 
@@ -232,7 +232,7 @@ func TestPeerRegistration(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		if ok = reflect.DeepEqual(peer.IP, newPeer.IP) && string(key) == string(newKey); ok {
+		if ok = reflect.DeepEqual(peer.IPs, newPeer.IPs) && string(key) == string(newKey); ok {
 			break
 		}
 	}

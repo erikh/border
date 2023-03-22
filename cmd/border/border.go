@@ -178,7 +178,7 @@ func clientAddPeer(args []string) error {
 
 	peer := &config.Peer{
 		Key: &jwk,
-		IP:  ip,
+		IPs: []net.IP{ip},
 	}
 
 	req := &api.PeerRegistrationRequest{

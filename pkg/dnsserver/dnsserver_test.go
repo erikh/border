@@ -32,6 +32,7 @@ func TestStartShutdown(t *testing.T) {
 				Records: []*config.Record{
 					{
 						Name: "foo.test.home.arpa.",
+						Type: dnsconfig.TypeA,
 						Value: &dnsconfig.A{
 							Addresses: []net.IP{net.ParseIP("127.0.0.1")},
 							TTL:       60,
@@ -161,7 +162,7 @@ func TestStartShutdown(t *testing.T) {
 		}
 
 		if r.Rcode != dns.RcodeSuccess {
-			t.Fatalf("Unexpected message returned in %q DNS service: %v", typ, err)
+			t.Fatalf("Unexpected message returned in %q DNS service: (Rcode: %d) (error: %v)", typ, r.Rcode, err)
 		}
 
 		if len(r.Answer) != 1 {
