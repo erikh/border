@@ -29,6 +29,10 @@ func (hc *HealthCheck) SetTarget(target string) {
 	hc.target = target
 }
 
+func (hc *HealthCheck) Target() string {
+	return hc.target
+}
+
 type HealthCheckAction struct {
 	Check  *HealthCheck
 	Action func(*HealthCheck) error
