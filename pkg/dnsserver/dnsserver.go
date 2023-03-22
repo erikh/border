@@ -107,15 +107,12 @@ func (ds *DNSServer) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 			case dns.TypeSOA:
 				answers = zone.SOA.Convert(name)
 			case dns.TypeNS:
-				for _, ns := range zone.NS.Convert(name) {
-					answers = append(answers, ns)
-				}
+				answers = zone.NS.Convert(name)
 			default:
 				for _, rec := range zone.Records {
 					if rec.Name == name {
-						for _, rec := range rec.Value.Convert(name) {
-							answers = append(answers, rec)
-						}
+						answers = rec.Value.Convert(name)
+						break
 					}
 				}
 			}
@@ -123,7 +120,7 @@ func (ds *DNSServer) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 	}
 
 	if len(answers) == 0 {
-		m.SetRcode(r, dns.RcodeSuccess)
+		m.SetRcode(r, dns.RcodeNameError)
 		w.WriteMsg(m)
 		return
 	}
