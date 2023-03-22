@@ -33,42 +33,9 @@ func (s *Server) Launch(peerName string, c *config.Config) error {
 		return err
 	}
 
-	balancers := []*lb.Balancer{}
-
-	for _, zone := range c.Zones {
-		for _, rec := range zone.Records {
-			if rec.Type == dnsconfig.TypeLB {
-				lbRecord, ok := rec.Value.(*dnsconfig.LB)
-				if !ok {
-					return fmt.Errorf("LB record for %q was not parsed correctly", rec.Name)
-				}
-
-				for _, listener := range lbRecord.Listeners {
-					fmt.Println(listener)
-					host, _, err := net.SplitHostPort(listener)
-					if err != nil {
-						return fmt.Errorf("Invalid listener %q: could not parse: %v", listener, err)
-					}
-
-					if host == c.Peers[peerName].IP.String() {
-						bc := lb.BalancerConfig{
-							Kind:                     lbRecord.Kind,
-							Backends:                 lbRecord.Backends,
-							SimultaneousConnections:  lbRecord.SimultaneousConnections,
-							MaxConnectionsPerAddress: lbRecord.MaxConnectionsPerAddress,
-							ConnectionTimeout:        lbRecord.ConnectionTimeout,
-						}
-
-						balancer := lb.Init(listener, bc)
-						if err := balancer.Start(); err != nil {
-							return fmt.Errorf("Could not start balancer %q: %v", rec.Name, err)
-						}
-
-						balancers = append(balancers, balancer)
-					}
-				}
-			}
-		}
+	balancers, err := s.createBalancers(peerName, c)
+	if err != nil {
+		return err
 	}
 
 	s.dns = dnsserver
@@ -92,4 +59,46 @@ func (s *Server) Shutdown(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+func (s *Server) createBalancers(peerName string, c *config.Config) ([]*lb.Balancer, error) {
+	balancers := []*lb.Balancer{}
+
+	for _, zone := range c.Zones {
+		for _, rec := range zone.Records {
+			if rec.Type == dnsconfig.TypeLB {
+				lbRecord, ok := rec.Value.(*dnsconfig.LB)
+				if !ok {
+					return nil, fmt.Errorf("LB record for %q was not parsed correctly", rec.Name)
+				}
+
+				for _, listener := range lbRecord.Listeners {
+					fmt.Println(listener)
+					host, _, err := net.SplitHostPort(listener)
+					if err != nil {
+						return nil, fmt.Errorf("Invalid listener %q: could not parse: %v", listener, err)
+					}
+
+					if host == c.Peers[peerName].IP.String() {
+						bc := lb.BalancerConfig{
+							Kind:                     lbRecord.Kind,
+							Backends:                 lbRecord.Backends,
+							SimultaneousConnections:  lbRecord.SimultaneousConnections,
+							MaxConnectionsPerAddress: lbRecord.MaxConnectionsPerAddress,
+							ConnectionTimeout:        lbRecord.ConnectionTimeout,
+						}
+
+						balancer := lb.Init(listener, bc)
+						if err := balancer.Start(); err != nil {
+							return nil, fmt.Errorf("Could not start balancer %q: %v", rec.Name, err)
+						}
+
+						balancers = append(balancers, balancer)
+					}
+				}
+			}
+		}
+	}
+
+	return balancers, nil
 }
