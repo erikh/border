@@ -47,14 +47,14 @@ func (hc *HealthCheckAction) runCheck() error {
 	case TypePing:
 		ip := net.ParseIP(hc.Check.target)
 		if ip == nil {
-			return fmt.Errorf("Ping types must be an IP, received %q, which is not an IP", hc.Check.target)
+			return fmt.Errorf("Ping types must be an IP, received %q for check %q, which is not an IP", hc.Check.target, hc.Check.Name)
 		}
 
 		if !ping.Ping(&net.IPAddr{IP: ip}, hc.Check.Timeout) {
-			return fmt.Errorf("Failed to ping address %q", hc.Check.target)
+			return fmt.Errorf("Failed to ping address %q (check: %q)", hc.Check.target, hc.Check.Name)
 		}
 	default:
-		return fmt.Errorf("Invalid health check type %q: please adjust your configuration", hc.Check.Type)
+		return fmt.Errorf("Invalid health check type %q (check: %q): please adjust your configuration", hc.Check.Type, hc.Check.Name)
 	}
 
 	return nil
