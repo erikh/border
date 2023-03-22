@@ -213,7 +213,6 @@ func (s *Server) buildHealthChecks(c *config.Config) (*healthcheck.HealthChecker
 					}
 
 					for _, listener := range lbRecord.Listeners {
-
 						host, _, err := net.SplitHostPort(listener)
 						if err != nil {
 							return nil, fmt.Errorf("While computing healthcheck records for load balancer listener %q: %w", listener, err)
