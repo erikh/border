@@ -155,6 +155,10 @@ func (s *Server) buildHealthChecks(c *config.Config) (*healthcheck.HealthChecker
 							newCheck.Name = rec.Name
 						}
 
+						if newCheck.Type == "" {
+							newCheck.Type = healthcheck.TypePing
+						}
+
 						checks = append(checks, &healthcheck.HealthCheckAction{
 							Check: newCheck,
 							FailedAction: func(check *healthcheck.HealthCheck) error {
@@ -195,6 +199,10 @@ func (s *Server) buildHealthChecks(c *config.Config) (*healthcheck.HealthChecker
 							newCheck.Name = rec.Name
 						}
 
+						if newCheck.Type == "" {
+							newCheck.Type = healthcheck.TypePing
+						}
+
 						newCheck.SetTarget(host)
 
 						checks = append(checks, &healthcheck.HealthCheckAction{
@@ -231,6 +239,10 @@ func (s *Server) buildHealthChecks(c *config.Config) (*healthcheck.HealthChecker
 
 						if newCheck.Name == "" {
 							newCheck.Name = rec.Name
+						}
+
+						if newCheck.Type == "" {
+							newCheck.Type = healthcheck.TypePing
 						}
 
 						newCheck.SetTarget(host)
