@@ -20,15 +20,17 @@ func TestHealthCheck(t *testing.T) {
 	var successful atomic.Bool
 	successful.Store(true)
 
+	check := &hc.HealthCheck{
+		Name:     "ping test",
+		Type:     hc.TypePing,
+		Timeout:  100 * time.Millisecond,
+		Failures: 3,
+	}
+	check.SetTarget("11.1.0.1")
+
 	hcr := hc.Init([]hc.HealthCheckAction{
 		{
-			Check: hc.HealthCheck{
-				Name:     "ping test",
-				Type:     hc.TypePing,
-				Target:   "11.1.0.1", // XXX DoD dark class A, should never work outside the container
-				Timeout:  100 * time.Millisecond,
-				Failures: 3,
-			},
+			Check: check,
 			Action: func() error {
 				successful.Store(false)
 				return nil

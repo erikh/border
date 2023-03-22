@@ -19,13 +19,18 @@ const (
 type HealthCheck struct {
 	Name     string        `record:"name,optional"`
 	Type     string        `record:"type,optional"`
-	Target   string        `record:"target"`
 	Timeout  time.Duration `record:"timeout"`
 	Failures int           `record:"failures"`
+
+	target string
+}
+
+func (hc *HealthCheck) SetTarget(target string) {
+	hc.target = target
 }
 
 type HealthCheckAction struct {
-	Check  HealthCheck
+	Check  *HealthCheck
 	Action func() error
 }
 
@@ -40,13 +45,13 @@ type HealthChecker struct {
 func (hc *HealthCheckAction) runCheck() error {
 	switch hc.Check.Type {
 	case TypePing:
-		ip := net.ParseIP(hc.Check.Target)
+		ip := net.ParseIP(hc.Check.target)
 		if ip == nil {
-			return fmt.Errorf("Ping types must be an IP, received %q, which is not an IP", hc.Check.Target)
+			return fmt.Errorf("Ping types must be an IP, received %q, which is not an IP", hc.Check.target)
 		}
 
 		if !ping.Ping(&net.IPAddr{IP: ip}, hc.Check.Timeout) {
-			return fmt.Errorf("Failed to ping address %q", hc.Check.Target)
+			return fmt.Errorf("Failed to ping address %q", hc.Check.target)
 		}
 	default:
 		return fmt.Errorf("Invalid health check type %q: please adjust your configuration", hc.Check.Type)
