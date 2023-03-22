@@ -1,7 +1,6 @@
 package healthcheck
 
 import (
-	"context"
 	"net"
 	"sync/atomic"
 	"testing"
@@ -56,11 +55,9 @@ func TestHealthCheck(t *testing.T) {
 
 	pingCleanup := func() { netlink.LinkDel(veth) }
 	t.Cleanup(pingCleanup)
+	t.Cleanup(hcr.Shutdown)
 
-	ctx, cancel := context.WithCancel(context.Background())
-	t.Cleanup(cancel)
-
-	go hcr.Run(ctx)
+	go hcr.Start()
 
 	time.Sleep(time.Second)
 

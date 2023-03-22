@@ -38,8 +38,9 @@ type HealthChecker struct {
 	HealthChecks []HealthCheckAction
 	Failures     []int
 
-	timer *time.Ticker
-	mutex sync.RWMutex
+	timer      *time.Ticker
+	mutex      sync.RWMutex
+	cancelFunc context.CancelFunc
 }
 
 func (hc *HealthCheckAction) runCheck() error {
@@ -94,7 +95,18 @@ func (hcr *HealthChecker) runChecks() {
 	finished.Wait()
 }
 
-func (hcr *HealthChecker) Run(ctx context.Context) {
+func (hcr *HealthChecker) Start() {
+	ctx, cancel := context.WithCancel(context.Background())
+	hcr.cancelFunc = cancel
+
+	go hcr.run(ctx)
+}
+
+func (hcr *HealthChecker) Shutdown() {
+	hcr.cancelFunc()
+}
+
+func (hcr *HealthChecker) run(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():

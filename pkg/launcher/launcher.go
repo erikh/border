@@ -10,13 +10,15 @@ import (
 	"github.com/erikh/border/pkg/controlserver"
 	"github.com/erikh/border/pkg/dnsconfig"
 	"github.com/erikh/border/pkg/dnsserver"
+	"github.com/erikh/border/pkg/healthcheck"
 	"github.com/erikh/border/pkg/lb"
 )
 
 type Server struct {
-	control   *controlserver.Server
-	dns       dnsserver.DNSServer // FIXME make pointer
-	balancers []*lb.Balancer
+	control       *controlserver.Server
+	dns           dnsserver.DNSServer // FIXME make pointer
+	balancers     []*lb.Balancer
+	healthChecker *healthcheck.HealthChecker
 }
 
 func (s *Server) Launch(peerName string, c *config.Config) error {
@@ -122,4 +124,8 @@ func (s *Server) createBalancers(peerName string, c *config.Config) ([]*lb.Balan
 	}
 
 	return balancers, nil
+}
+
+func (s *Server) buildHealthChecks(c *config.Config) (*healthcheck.HealthChecker, error) {
+	return nil, nil
 }
