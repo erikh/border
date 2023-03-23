@@ -58,7 +58,7 @@ func main() {
 					},
 					{
 						Name:      "addpeer",
-						Usage:     "border client addpeer <ip> <YAML JWK keyfile>",
+						Usage:     "border client addpeer <YAML JWK keyfile> <ip (repeating)>",
 						ShortHelp: "Add a peer to the quorum. Use keygenerate to generate a keyfile.",
 						Exec:      clientAddPeer,
 					},
@@ -156,18 +156,13 @@ func clientAddPeer(args []string) error {
 		return fmt.Errorf("Could not load client configuration at %q: %w", *clientConfigFile, err)
 	}
 
-	if len(args) != 2 {
+	if len(args) < 2 {
 		return errors.New("Please provide a peer IP and key file")
 	}
 
 	var jwk jose.JSONWebKey
 
-	ip := net.ParseIP(args[0])
-	if ip == nil {
-		return fmt.Errorf("IP %q is not a valid IP address", args[0])
-	}
-
-	byt, err := os.ReadFile(args[1])
+	byt, err := os.ReadFile(args[0])
 	if err != nil {
 		return fmt.Errorf("Could not read key file: %w", err)
 	}
@@ -176,9 +171,20 @@ func clientAddPeer(args []string) error {
 		return fmt.Errorf("Could not unmarshal JWK YAML: %w", err)
 	}
 
+	ips := []net.IP{}
+
+	for _, ipstr := range args[1:] {
+		ip := net.ParseIP(ipstr)
+		if ip == nil {
+			return fmt.Errorf("IP %q is not a valid IP address", ipstr)
+		}
+
+		ips = append(ips, ip)
+	}
+
 	peer := &config.Peer{
 		Key: &jwk,
-		IPs: []net.IP{ip},
+		IPs: ips,
 	}
 
 	req := &api.PeerRegistrationRequest{
