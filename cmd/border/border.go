@@ -157,7 +157,7 @@ func clientAddPeer(args []string) error {
 	}
 
 	if len(args) < 2 {
-		return errors.New("Please provide a peer IP and key file")
+		return errors.New("Please provide a key file and list of peer IPs")
 	}
 
 	var jwk jose.JSONWebKey
