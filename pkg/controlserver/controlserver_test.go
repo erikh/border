@@ -72,8 +72,8 @@ func authCheck(server *Server, body io.Reader) (*http.Response, error) {
 	return http.DefaultClient.Do(req.WithContext(ctx))
 }
 
-func testHandler(t *testing.T, route, typ string, payload api.Message) *Server {
-	server, err := Start(makeConfig(t), ":0", 10*time.Millisecond, 10*time.Millisecond)
+func testHandler(t *testing.T, c *config.Config, route, typ string, payload api.Message) *Server {
+	server, err := Start(c, ":0", 10*time.Millisecond, 10*time.Millisecond)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -187,16 +187,17 @@ func TestNonce(t *testing.T) {
 }
 
 func TestConfigUpdate(t *testing.T) {
-	config := makeConfig(t)
+	c := makeConfig(t)
 	const jenny = ":5309"
 
-	config.Listen.Control = jenny
+	c.Listen.Control = jenny
 
 	server := testHandler(
 		t,
+		c,
 		api.PathConfigUpdate,
 		"update configuration",
-		&api.ConfigUpdateRequest{Config: config},
+		&api.ConfigUpdateRequest{Config: c},
 	)
 
 	if server.config.Listen.Control != jenny {
@@ -204,7 +205,31 @@ func TestConfigUpdate(t *testing.T) {
 	}
 }
 
+func TestConfigReload(t *testing.T) {
+	c := makeConfig(t)
+
+	if err := c.Save(); err != nil {
+		t.Fatal(err)
+	}
+
+	server := testHandler(
+		t,
+		c,
+		api.PathConfigReload,
+		"reload configuration",
+		&api.ConfigReloadRequest{},
+	)
+
+	select {
+	case <-time.After(time.Second):
+		t.Fatal("Reload was never triggered")
+	case <-server.config.ReloadChan():
+	}
+}
+
 func TestPeerRegistration(t *testing.T) {
+	c := makeConfig(t)
+
 	jwk, err := josekit.MakeKey("peer")
 	if err != nil {
 		t.Fatal(err)
@@ -217,6 +242,7 @@ func TestPeerRegistration(t *testing.T) {
 
 	server := testHandler(
 		t,
+		c,
 		api.PathPeerRegistration,
 		"peer registration",
 		&api.PeerRegistrationRequest{Name: "zombocom", Peer: peer},

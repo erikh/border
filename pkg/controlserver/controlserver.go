@@ -114,6 +114,7 @@ func (s *Server) configureMux() *http.ServeMux {
 	mux.HandleFunc("/"+api.PathNonce, s.handleNonce)
 	mux.HandleFunc("/"+api.PathAuthCheck, s.handleAuthCheck)
 	mux.HandleFunc("/"+api.PathConfigUpdate, s.handleConfigUpdate)
+	mux.HandleFunc("/"+api.PathConfigReload, s.handleConfigReload)
 	mux.HandleFunc("/"+api.PathPeerRegistration, s.handlePeerRegister)
 	return mux
 }

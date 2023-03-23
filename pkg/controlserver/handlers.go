@@ -147,8 +147,8 @@ func (s *Server) handlePeerRegister(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(serialized))
 }
 
-func (s *Server) handleReloadRequest(w http.ResponseWriter, r *http.Request) {
-	var reloadRequest api.ReloadRequest
+func (s *Server) handleConfigReload(w http.ResponseWriter, r *http.Request) {
+	var reloadRequest api.ConfigReloadRequest
 
 	if code, err := s.handleValidateNonce(r, &reloadRequest); err != nil {
 		http.Error(w, fmt.Sprintf("Nonce validation failed: %v", err), code)

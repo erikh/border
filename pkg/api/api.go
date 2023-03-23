@@ -14,6 +14,7 @@ const (
 	PathAuthCheck        = "authCheck"
 	PathPeerRegistration = "peerRegister"
 	PathConfigUpdate     = "configUpdate"
+	PathConfigReload     = "configReload"
 )
 
 type Message interface {
@@ -126,22 +127,22 @@ func (peer *PeerRegistrationRequest) Marshal() ([]byte, error) {
 	return json.Marshal(peer)
 }
 
-type ReloadRequest struct {
+type ConfigReloadRequest struct {
 	NonceValue []byte `json:"nonce"`
 }
 
-func (rr *ReloadRequest) Unmarshal(byt []byte) error {
+func (rr *ConfigReloadRequest) Unmarshal(byt []byte) error {
 	return json.Unmarshal(byt, rr)
 }
 
-func (rr *ReloadRequest) Nonce() string {
+func (rr *ConfigReloadRequest) Nonce() string {
 	return string(rr.NonceValue)
 }
 
-func (rr *ReloadRequest) SetNonce(nonce []byte) {
+func (rr *ConfigReloadRequest) SetNonce(nonce []byte) {
 	rr.NonceValue = nonce
 }
 
-func (rr *ReloadRequest) Marshal() ([]byte, error) {
+func (rr *ConfigReloadRequest) Marshal() ([]byte, error) {
 	return json.Marshal(rr)
 }

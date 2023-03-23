@@ -68,6 +68,12 @@ func main() {
 						ShortHelp: "Update the configuration remotely",
 						Exec:      clientUpdateConfig,
 					},
+					{
+						Name:      "reloadconfig",
+						Usage:     "border client reloadconfig",
+						ShortHelp: "Force a reload of the configuration",
+						Exec:      clientReloadConfig,
+					},
 				},
 			},
 			{
@@ -193,6 +199,24 @@ func clientAddPeer(args []string) error {
 
 	resp := api.NilResponse{}
 	return client.Exchange(api.PathPeerRegistration, req, &resp)
+}
+
+func clientReloadConfig(args []string) error {
+	client, err := controlclient.Load(*clientConfigFile)
+	if err != nil {
+		return fmt.Errorf("Could not load client configuration at %q: %w", *clientConfigFile, err)
+	}
+
+	if len(args) != 0 {
+		return errors.New("Invalid Arguments")
+	}
+
+	if err := client.Exchange(api.PathConfigReload, &api.ConfigReloadRequest{}, &api.NilResponse{}); err != nil {
+		return fmt.Errorf("Error updating configuration: %w", err)
+	}
+
+	fmt.Println("OK")
+	return nil
 }
 
 func clientUpdateConfig(args []string) error {
