@@ -63,6 +63,8 @@ zones:
         name: balancer.test.home.arpa
         value:
           listeners:
+            # note that the name 'foo' here corresponds to the peer listed
+            # above, so this will listen on localhost, ipv4 and v6.
             - foo:8000
           backends:
             - 127.0.0.1:8001
