@@ -1,5 +1,9 @@
 all: test
 
+test-full:
+	go test -v ./... -count 1
+	make test-integration
+
 test:
 	go test -v ./...
 	make test-integration
