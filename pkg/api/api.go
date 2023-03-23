@@ -125,3 +125,23 @@ func (peer *PeerRegistrationRequest) SetNonce(nonce []byte) {
 func (peer *PeerRegistrationRequest) Marshal() ([]byte, error) {
 	return json.Marshal(peer)
 }
+
+type ReloadRequest struct {
+	NonceValue []byte `json:"nonce"`
+}
+
+func (rr *ReloadRequest) Unmarshal(byt []byte) error {
+	return json.Unmarshal(byt, rr)
+}
+
+func (rr *ReloadRequest) Nonce() string {
+	return string(rr.NonceValue)
+}
+
+func (rr *ReloadRequest) SetNonce(nonce []byte) {
+	rr.NonceValue = nonce
+}
+
+func (rr *ReloadRequest) Marshal() ([]byte, error) {
+	return json.Marshal(rr)
+}

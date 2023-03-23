@@ -121,6 +121,12 @@ func (s *Server) configureMux() *http.ServeMux {
 func (s *Server) saveConfig(w http.ResponseWriter) {
 	if err := s.config.Save(); err != nil {
 		http.Error(w, fmt.Sprintf("Could not save configuration: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	if err := s.config.Reload(); err != nil {
+		http.Error(w, fmt.Sprintf("While reloading configuration: %v", err), http.StatusInternalServerError)
+		return
 	}
 }
 

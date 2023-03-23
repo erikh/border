@@ -146,3 +146,25 @@ func (s *Server) handlePeerRegister(w http.ResponseWriter, r *http.Request) {
 
 	w.Write([]byte(serialized))
 }
+
+func (s *Server) handleReloadRequest(w http.ResponseWriter, r *http.Request) {
+	var reloadRequest api.ReloadRequest
+
+	if code, err := s.handleValidateNonce(r, &reloadRequest); err != nil {
+		http.Error(w, fmt.Sprintf("Nonce validation failed: %v", err), code)
+		return
+	}
+
+	if err := s.config.Reload(); err != nil {
+		http.Error(w, fmt.Sprintf("Error reloading configuration: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	serialized, err := api.EncryptResponse(s.config.AuthKey, api.NilResponse{})
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Error encrypting response: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	w.Write([]byte(serialized))
+}

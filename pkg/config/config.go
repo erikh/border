@@ -1,18 +1,13 @@
 package config
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
-	"os"
-	"path/filepath"
-	"strings"
 	"sync"
 	"time"
 
 	"github.com/erikh/border/pkg/dnsconfig"
-	"github.com/ghodss/yaml"
 	"github.com/go-jose/go-jose/v3"
 )
 
@@ -31,6 +26,8 @@ type Config struct {
 	Publisher      net.IP           `json:"publisher"`
 	Peers          map[string]*Peer `json:"peers"`
 	Zones          map[string]*Zone `json:"zones"`
+
+	reload chan struct{}
 }
 
 type ListenConfig struct {
@@ -49,61 +46,22 @@ type Zone struct {
 	Records []*Record      `json:"records"`
 }
 
-func (c *Config) postLoad(filename string) error {
-	// XXX I'm going to hell for this
-	c.FilenamePrefix = strings.TrimSuffix(filename, filepath.Ext(filename))
+func (c *Config) InitReload() {
+	c.reload = make(chan struct{}, 1)
+}
 
-	if len(c.Peers) == 0 {
-		return errors.New("You must specify at least one peer")
+func (c *Config) ReloadChan() <-chan struct{} {
+	return c.reload
+}
+
+func (c *Config) Reload() error {
+	newConfig, err := FromDisk(c.FilenamePrefix+".yaml", LoadYAML)
+	if err != nil {
+		return fmt.Errorf("While reloading configuration: %w", err)
 	}
 
-	if err := c.convertLiterals(); err != nil {
-		return err
-	}
-
-	c.decorateZones()
+	*c = *newConfig
+	c.reload <- struct{}{}
 
 	return nil
-}
-
-func (c *Config) Save() error {
-	if c.FilenamePrefix == "" {
-		return errors.New("invalid filename prefix")
-	}
-
-	fi, err := os.Stat(c.FilenamePrefix)
-	if (fi != nil && fi.IsDir()) || err == nil {
-		return fmt.Errorf("Filename prefix %q exists or is a directory, should not be", c.FilenamePrefix)
-	}
-
-	FileMutex.Lock()
-	defer FileMutex.Unlock()
-
-	if err := ToDisk(c.FilenamePrefix+".json.tmp", c.SaveJSON); err != nil {
-		return err
-	}
-
-	if err := os.Rename(c.FilenamePrefix+".json.tmp", c.FilenamePrefix+".json"); err != nil {
-		return fmt.Errorf("Could not move configuration file into place: %w", err)
-	}
-
-	if err := ToDisk(c.FilenamePrefix+".yaml.tmp", c.SaveYAML); err != nil {
-		return err
-	}
-
-	if err := os.Rename(c.FilenamePrefix+".yaml.tmp", c.FilenamePrefix+".yaml"); err != nil {
-		return fmt.Errorf("Could not move configuration file into place: %w", err)
-	}
-
-	return nil
-}
-
-func (c *Config) SaveJSON() ([]byte, error) {
-	c.trimZones()
-	return json.MarshalIndent(c, "", "  ")
-}
-
-func (c *Config) SaveYAML() ([]byte, error) {
-	c.trimZones()
-	return yaml.Marshal(c)
 }
