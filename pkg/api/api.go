@@ -19,7 +19,7 @@ const (
 
 type Message interface {
 	Unmarshal([]byte) error
-	SetNonce([]byte)
+	SetNonce([]byte) error
 	Marshal() ([]byte, error)
 	Nonce() string
 }
@@ -50,7 +50,7 @@ func EncryptResponse(authKey *jose.JSONWebKey, response Message) ([]byte, error)
 	return []byte(serialized), nil
 }
 
-func (nr NilResponse) SetNonce(nonce []byte) {}
+func (nr NilResponse) SetNonce(nonce []byte) error { return nil }
 
 func (nr NilResponse) Marshal() ([]byte, error) {
 	return []byte("{}"), nil
@@ -76,8 +76,8 @@ func (ac AuthCheck) Nonce() string {
 	return string(ac)
 }
 
-func (ac AuthCheck) SetNonce(nonce []byte) {
-	ac.Unmarshal(nonce)
+func (ac AuthCheck) SetNonce(nonce []byte) error {
+	return ac.Unmarshal(nonce)
 }
 
 func (ac AuthCheck) Marshal() ([]byte, error) {
@@ -97,8 +97,9 @@ func (cur *ConfigUpdateRequest) Nonce() string {
 	return string(cur.NonceValue)
 }
 
-func (cur *ConfigUpdateRequest) SetNonce(nonce []byte) {
+func (cur *ConfigUpdateRequest) SetNonce(nonce []byte) error {
 	cur.NonceValue = nonce
+	return nil
 }
 
 func (cur *ConfigUpdateRequest) Marshal() ([]byte, error) {
@@ -119,8 +120,9 @@ func (peer *PeerRegistrationRequest) Nonce() string {
 	return string(peer.NonceValue)
 }
 
-func (peer *PeerRegistrationRequest) SetNonce(nonce []byte) {
+func (peer *PeerRegistrationRequest) SetNonce(nonce []byte) error {
 	peer.NonceValue = nonce
+	return nil
 }
 
 func (peer *PeerRegistrationRequest) Marshal() ([]byte, error) {
@@ -139,8 +141,9 @@ func (rr *ConfigReloadRequest) Nonce() string {
 	return string(rr.NonceValue)
 }
 
-func (rr *ConfigReloadRequest) SetNonce(nonce []byte) {
+func (rr *ConfigReloadRequest) SetNonce(nonce []byte) error {
 	rr.NonceValue = nonce
+	return nil
 }
 
 func (rr *ConfigReloadRequest) Marshal() ([]byte, error) {

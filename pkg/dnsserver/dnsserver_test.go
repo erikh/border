@@ -48,7 +48,7 @@ func TestStartShutdown(t *testing.T) {
 	}
 
 	t.Cleanup(func() {
-		ds.Shutdown()
+		ds.Shutdown() // nolint:errcheck
 	})
 
 	seed := rand.New(rand.NewSource(time.Now().Unix())) // used in msgid calc later

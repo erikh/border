@@ -96,7 +96,9 @@ func (c *Client) SendRequest(endpoint string, msg api.Message) (*http.Response, 
 		return nil, fmt.Errorf("Failed to retrieve nonce: %w", err)
 	}
 
-	msg.SetNonce(nonce)
+	if err := msg.SetNonce(nonce); err != nil {
+		return nil, fmt.Errorf("Could not set nonce: %w", err)
+	}
 
 	encrypter, err := josekit.GetEncrypter(c.AuthKey)
 	if err != nil {

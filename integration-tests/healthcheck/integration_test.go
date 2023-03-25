@@ -63,7 +63,7 @@ func TestHealthCheck(t *testing.T) {
 
 	pingCreate(t)
 
-	pingDestroy := func() { netlink.LinkDel(veth) }
+	pingDestroy := func() { netlink.LinkDel(veth) } // nolint:errcheck
 	t.Cleanup(pingDestroy)
 	t.Cleanup(hcr.Shutdown)
 

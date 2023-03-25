@@ -35,7 +35,7 @@ func makeConfig(t *testing.T) *config.Config {
 	})
 
 	c := &config.Config{
-		Peers: map[string]*config.Peer{"foo": &config.Peer{
+		Peers: map[string]*config.Peer{"foo": {
 			Key: jwk,
 			IPs: []net.IP{net.ParseIP("127.0.0.1")},
 		}},
@@ -80,7 +80,7 @@ func testHandler(t *testing.T, c *config.Config, route, typ string, payload api.
 	t.Cleanup(func() {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 		defer cancel()
-		server.Shutdown(ctx)
+		server.Shutdown(ctx) // nolint:errcheck
 	})
 
 	client := makeClient(server.listener.Addr(), server.config.AuthKey)
@@ -132,7 +132,7 @@ func TestNonce(t *testing.T) {
 	t.Cleanup(func() {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 		defer cancel()
-		server.Shutdown(ctx)
+		server.Shutdown(ctx) // nolint:errcheck
 	})
 
 	resp, err := getNonce(server)

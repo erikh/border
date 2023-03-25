@@ -147,7 +147,7 @@ func (ds *DNSServer) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 
 	if len(answers) == 0 {
 		m.SetRcode(r, dns.RcodeNameError)
-		w.WriteMsg(m)
+		w.WriteMsg(m) // nolint:errcheck
 		return
 	}
 
@@ -156,5 +156,5 @@ func (ds *DNSServer) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 	m.RecursionAvailable = true
 	m.Answer = answers
 
-	w.WriteMsg(m)
+	w.WriteMsg(m) // nolint:errcheck
 }

@@ -84,12 +84,12 @@ func (b *Balancer) forwardTCPConn(ctx context.Context, connChan chan net.Conn) {
 				// FIXME timeouts to prevent slowloris attacks. Also shutdown socket on context finish.
 				// FIXME probably should use CopyN to avoid other styles of slowloris attack (endless data)
 				go func() {
-					io.Copy(backend, conn)
+					io.Copy(backend, conn) // nolint:errcheck
 					cancel()
 				}()
 
 				go func() {
-					io.Copy(conn, backend)
+					io.Copy(conn, backend) // nolint:errcheck
 					cancel()
 				}()
 

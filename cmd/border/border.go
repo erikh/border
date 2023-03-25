@@ -127,7 +127,7 @@ func serve(args []string) error {
 		defer cancel()
 		defer innerCancel()
 
-		server.Shutdown(innerCtx)
+		server.Shutdown(innerCtx) // nolint:errcheck
 	}()
 
 	signal.Notify(sigChan, unix.SIGTERM, unix.SIGINT)

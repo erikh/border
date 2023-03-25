@@ -49,7 +49,10 @@ func TestTCPTimeout(t *testing.T) {
 			}
 
 			before := time.Now()
-			io.Copy(io.Discard, conn)
+			if _, err := io.Copy(io.Discard, conn); err != nil {
+				log.Fatal(err)
+				return
+			}
 
 			conn.Close()
 

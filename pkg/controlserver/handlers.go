@@ -44,7 +44,7 @@ func (s *Server) handleNonce(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Write(serialized)
+	w.Write(serialized) // nolint:errcheck
 }
 
 // handlePut deserializes a JWE request, which should be serviced via the PUT HTTP verb.
@@ -121,7 +121,7 @@ func (s *Server) handleConfigUpdate(w http.ResponseWriter, r *http.Request) {
 	s.configMutex.Unlock()
 	s.saveConfig(w)
 
-	w.Write(serialized)
+	w.Write(serialized) // nolint:errcheck
 }
 
 func (s *Server) handlePeerRegister(w http.ResponseWriter, r *http.Request) {
@@ -144,7 +144,7 @@ func (s *Server) handlePeerRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Write([]byte(serialized))
+	w.Write([]byte(serialized)) // nolint:errcheck
 }
 
 func (s *Server) handleConfigReload(w http.ResponseWriter, r *http.Request) {
@@ -166,5 +166,5 @@ func (s *Server) handleConfigReload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Write([]byte(serialized))
+	w.Write([]byte(serialized)) // nolint:errcheck
 }
