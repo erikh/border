@@ -55,18 +55,12 @@ func EncryptResponse(authKey *jose.JSONWebKey, response Message) ([]byte, error)
 
 type NilResponse struct{}
 
-func (nr NilResponse) SetNonce(nonce []byte) error { return nil }
-
 func (nr NilResponse) Marshal() ([]byte, error) {
 	return []byte("{}"), nil
 }
 
 func (nr NilResponse) Unmarshal(byt []byte) error {
 	return nil
-}
-
-func (nr NilResponse) Nonce() string {
-	return ""
 }
 
 // both the request for /authCheck, and the response for /nonce
