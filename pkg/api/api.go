@@ -270,6 +270,7 @@ func (ser *StartElectionResponse) Marshal() ([]byte, error) {
 
 type ElectionVoteRequest struct {
 	NonceValue []byte        `json:"nonce"`
+	Me         string        `json:"me"`
 	Uptime     time.Duration `json:"uptime"`
 }
 
