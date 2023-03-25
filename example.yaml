@@ -5,6 +5,7 @@
 # dig -p 5300 -t a balancer.test.home.arpa. @localhost
 listen:
   dns: :5300
+  control: :5309
 # generate this key with `border keygenerate` and paste it in. This is an
 # encryption and signing key. Do not use the default!
 auth_key:

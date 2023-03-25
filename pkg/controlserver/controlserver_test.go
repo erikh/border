@@ -20,7 +20,7 @@ import (
 )
 
 func makeConfig(t *testing.T) *config.Config {
-	jwk, err := josekit.MakeKey("test")
+	jwk, err := josekit.MakeKey("foo")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -35,7 +35,7 @@ func makeConfig(t *testing.T) *config.Config {
 	})
 
 	c := &config.Config{
-		Peers: map[string]*config.Peer{"foo": {
+		Peers: []*config.Peer{{
 			Key: jwk,
 			IPs: []net.IP{net.ParseIP("127.0.0.1")},
 		}},
@@ -230,7 +230,7 @@ func TestConfigReload(t *testing.T) {
 func TestPeerRegistration(t *testing.T) {
 	c := makeConfig(t)
 
-	jwk, err := josekit.MakeKey("peer")
+	jwk, err := josekit.MakeKey("foo")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -245,7 +245,7 @@ func TestPeerRegistration(t *testing.T) {
 		c,
 		api.PathPeerRegistration,
 		"peer registration",
-		&api.PeerRegistrationRequest{Name: "zombocom", Peer: peer},
+		&api.PeerRegistrationRequest{Peer: peer},
 	)
 
 	var ok bool

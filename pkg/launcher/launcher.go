@@ -25,12 +25,7 @@ type Server struct {
 }
 
 func (s *Server) Launch(peerName string, c *config.Config) error {
-	peer, err := c.FindPeer(peerName)
-	if err != nil {
-		return fmt.Errorf("Could not find self in list of peers: %w", err)
-	}
-
-	cs, err := controlserver.Start(c, peer.ControlServer, controlserver.NonceExpiration, 100*time.Millisecond)
+	cs, err := controlserver.Start(c, c.Listen.Control, controlserver.NonceExpiration, 100*time.Millisecond)
 	if err != nil {
 		return err
 	}

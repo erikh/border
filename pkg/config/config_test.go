@@ -40,11 +40,11 @@ func TestMarshal(t *testing.T) {
 	}
 
 	c := Config{
-		Listen: ListenConfig{Control: ":5309"},
-		Peers: map[string]*Peer{
-			"peer": {
-				Key: key,
-				IPs: []net.IP{net.ParseIP("127.0.0.1")},
+		Peers: []*Peer{
+			{
+				ControlServer: ":5309",
+				Key:           key,
+				IPs:           []net.IP{net.ParseIP("127.0.0.1")},
 			},
 		},
 		Zones: map[string]*Zone{},
@@ -72,11 +72,21 @@ func TestMarshal(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	peer1, err := c.FindPeer("peer")
+	if err != nil {
+		t.Fatalf("during search of peer1: %v", err)
+	}
+
+	peer2, err := c.FindPeer("peer")
+	if err != nil {
+		t.Fatalf("during search of peer2: %v", err)
+	}
+
 	// why can't reflect.DeepEqual compare pointer innards. Frustrating!
 	// This is not an exhaustive comparison because I am a human being and will
 	// die eventually, and I don't want to spend the rest of my life adding shit
 	// here
-	if c.Listen.Control != c2.Listen.Control || !reflect.DeepEqual(c.Peers["peer"].IPs, c2.Peers["peer"].IPs) || !reflect.DeepEqual(c.Peers["peer"].Key.Key, c2.Peers["peer"].Key.Key) {
+	if c.Listen.Control != c2.Listen.Control || !reflect.DeepEqual(peer1.IPs, peer2.IPs) || !reflect.DeepEqual(peer1.Key.Key, peer2.Key.Key) {
 		t.Logf("%#v - %#v", c, c2)
 		t.Fatal("loaded content did not equal saved")
 	}
@@ -92,11 +102,21 @@ func TestMarshal(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	peer1, err = c.FindPeer("peer")
+	if err != nil {
+		t.Fatalf("during search of peer1: %v", err)
+	}
+
+	peer2, err = c.FindPeer("peer")
+	if err != nil {
+		t.Fatalf("during search of peer2: %v", err)
+	}
+
 	// why can't reflect.DeepEqual compare pointer innards. Frustrating!
 	// This is not an exhaustive comparison because I am a human being and will
 	// die eventually, and I don't want to spend the rest of my life adding shit
 	// here
-	if c.Listen.Control != c2.Listen.Control || !reflect.DeepEqual(c.Peers["peer"].IPs, c2.Peers["peer"].IPs) || !reflect.DeepEqual(c.Peers["peer"].Key.Key, c2.Peers["peer"].Key.Key) {
+	if c.Listen.Control != c2.Listen.Control || !reflect.DeepEqual(peer1.IPs, peer2.IPs) || !reflect.DeepEqual(peer1.Key.Key, peer2.Key.Key) {
 		t.Logf("%#v - %#v", c, c2)
 		t.Fatal("loaded content did not equal saved")
 	}

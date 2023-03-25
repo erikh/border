@@ -32,7 +32,8 @@ type Config struct {
 }
 
 type ListenConfig struct {
-	DNS string `json:"dns"`
+	DNS     string `json:"dns"`
+	Control string `json:"control"`
 }
 
 type Peer struct {

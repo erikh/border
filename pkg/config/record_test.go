@@ -11,19 +11,18 @@ import (
 )
 
 func TestRecordParse(t *testing.T) {
-	key, err := josekit.MakeKey("peer")
+	key, err := josekit.MakeKey("test")
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	config := Config{
 		Listen: ListenConfig{Control: ":5309"},
-		Peers: map[string]*Peer{
-			"peer": {
-				Key: key,
-				IPs: []net.IP{net.ParseIP("127.0.0.1")},
-			},
-		},
+		Peers: []*Peer{{
+			Key:           key,
+			IPs:           []net.IP{net.ParseIP("127.0.0.1")},
+			ControlServer: "127.0.0.1:5309",
+		}},
 		Zones: map[string]*Zone{
 			"test.home.arpa": {
 				SOA: &dnsconfig.SOA{
