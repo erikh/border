@@ -80,7 +80,7 @@ func (ds *DNSServer) findZone(name string) *config.Zone {
 	// perform a greedy reverse search of the FQDN. If this code is working
 	// right, the longest match will be found first, finding the most local zone.
 	for i := len(names); i > 0; i-- {
-		potentialZone := strings.Join(names[len(names)-i:len(names)], ".") + "."
+		potentialZone := strings.Join(names[len(names)-i:], ".") + "."
 		if zone, ok := ds.Zones[potentialZone]; ok {
 			return zone
 		}

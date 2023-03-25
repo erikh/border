@@ -128,9 +128,7 @@ func (s *Server) createBalancers(peerName string, c *config.Config) ([]*lb.Balan
 
 					// overwrite the listener peer record with the IP:port internally,
 					// this will probably bite me later but is a good solution for now.
-					hostIPs := []string{}
 					for _, ip := range c.Peers[host].IPs {
-						hostIPs = append(hostIPs, ip.String())
 						newListeners = append(newListeners, net.JoinHostPort(ip.String(), port))
 					}
 				}

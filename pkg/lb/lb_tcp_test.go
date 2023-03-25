@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"net"
 	"net/url"
 	"runtime"
@@ -42,7 +43,7 @@ func TestTCPTimeout(t *testing.T) {
 		for {
 			conn, err := backend.Accept()
 			if err != nil && !errors.Is(err, net.ErrClosed) {
-				t.Fatal(err)
+				log.Fatal(err)
 			} else if err != nil {
 				return
 			}
@@ -131,7 +132,7 @@ func TestTCP(t *testing.T) {
 		for {
 			conn, err := backend.Accept()
 			if err != nil && !errors.Is(err, net.ErrClosed) {
-				t.Fatal(err)
+				log.Fatal(err)
 			} else if err != nil {
 				return
 			}

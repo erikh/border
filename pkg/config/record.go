@@ -15,11 +15,7 @@ type Record struct {
 }
 
 func trimDot(key string) string {
-	if strings.HasSuffix(key, ".") {
-		key = strings.TrimSuffix(key, ".")
-	}
-
-	return key
+	return strings.TrimSuffix(key, ".")
 }
 
 func addDot(key string) string {

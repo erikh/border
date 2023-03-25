@@ -106,6 +106,7 @@ func serve(args []string) error {
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
 	server := &launcher.Server{}
 	if err := server.Launch(args[0], c); err != nil {
@@ -131,11 +132,8 @@ func serve(args []string) error {
 
 	signal.Notify(sigChan, unix.SIGTERM, unix.SIGINT)
 
-	select {
-	case <-ctx.Done():
-		fmt.Fprintln(os.Stderr, "terminating")
-		os.Exit(0)
-	}
+	<-ctx.Done()
+	fmt.Fprintln(os.Stderr, "terminating")
 
 	return nil
 }

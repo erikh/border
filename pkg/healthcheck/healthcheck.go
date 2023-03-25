@@ -92,7 +92,7 @@ func (hcr *HealthChecker) runChecks() {
 
 	hcr.mutex.RLock()
 	for i, check := range hcr.HealthChecks {
-		go func(i int) {
+		go func(check *HealthCheckAction, i int) {
 			if err := check.runCheck(); err != nil {
 				log.Print(err)
 				hcr.mutex.Lock()
@@ -115,7 +115,7 @@ func (hcr *HealthChecker) runChecks() {
 				hcr.mutex.Unlock()
 			}
 			finished.Done()
-		}(i)
+		}(check, i)
 	}
 	hcr.mutex.RUnlock()
 

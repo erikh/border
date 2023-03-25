@@ -51,7 +51,7 @@ func TestStartShutdown(t *testing.T) {
 		ds.Shutdown()
 	})
 
-	rand.Seed(time.Now().Unix()) // used in msgid calc later
+	seed := rand.New(rand.NewSource(time.Now().Unix())) // used in msgid calc later
 
 	// because we're using :0 it means that udp and tcp could theoretically be on different ports.
 	udpAddr := ds.udpServer.PacketConn.LocalAddr()
@@ -82,7 +82,7 @@ func TestStartShutdown(t *testing.T) {
 			t.Fatalf("%q DNS server does not appear to start: %v", typ, err)
 		}
 
-		id := uint16(rand.Uint32())
+		id := uint16(seed.Uint32())
 		err = conn.WriteMsg(&dns.Msg{MsgHdr: dns.MsgHdr{Id: id, Opcode: dns.OpcodeQuery}, Question: []dns.Question{{Name: "test.home.arpa.", Qtype: dns.TypeSOA, Qclass: dns.ClassINET}}})
 		if err != nil {
 			t.Fatalf("Error writing message to %q DNS service: %v", typ, err)

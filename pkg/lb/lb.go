@@ -125,10 +125,7 @@ func (b *Balancer) Shutdown() {
 }
 
 func (b *Balancer) closeConn(ctx context.Context, conn net.Conn) {
-	select {
-	case <-ctx.Done():
-	}
-
+	<-ctx.Done()
 	conn.Close()
 }
 
@@ -153,9 +150,7 @@ func (b *Balancer) getLowestBalancer() string {
 }
 
 func (b *Balancer) decrementCount(ctx context.Context, lowestAddr string) {
-	select {
-	case <-ctx.Done():
-	}
+	<-ctx.Done()
 
 	b.mutex.Lock()
 	if _, ok := b.backendConns[lowestAddr]; ok {

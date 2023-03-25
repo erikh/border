@@ -45,13 +45,13 @@ func Start(config *config.Config, listenSpec string, expireTime, bootWait time.D
 
 	errChan := make(chan error, 1)
 
-	ctx, cancel := context.WithCancel(context.Background())
-
 	// we use a listener directly so we can use ":0" in tests with ease.
 	l, err := net.Listen("tcp", listenSpec)
 	if err != nil {
 		return nil, err
 	}
+
+	ctx, cancel := context.WithCancel(context.Background())
 
 	server := &Server{
 		listener:          l,
