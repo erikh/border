@@ -85,7 +85,7 @@ func (c *Client) GetNonce() ([]byte, error) {
 	return nonce, nil
 }
 
-func (c *Client) SendRequest(endpoint string, msg api.Message) (*http.Response, error) {
+func (c *Client) SendRequest(endpoint string, msg api.Request) (*http.Response, error) {
 	baseurl, err := url.Parse(c.BaseURL)
 	if err != nil {
 		return nil, fmt.Errorf("Base URL %q is invalid: %w", c.BaseURL, err)
@@ -147,7 +147,7 @@ func (c *Client) SendRequest(endpoint string, msg api.Message) (*http.Response, 
 	return resp, nil
 }
 
-func (c *Client) Exchange(endpoint string, msg api.Message, res api.Message) error {
+func (c *Client) Exchange(endpoint string, msg api.Request, res api.Message) error {
 	resp, err := c.SendRequest(endpoint, msg)
 	if err != nil {
 		return fmt.Errorf("Failed to deliver request: %w", err)

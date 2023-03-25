@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/erikh/border/pkg/config"
 	"github.com/erikh/border/pkg/josekit"
@@ -19,12 +20,14 @@ const (
 
 type Message interface {
 	Unmarshal([]byte) error
-	SetNonce([]byte) error
 	Marshal() ([]byte, error)
-	Nonce() string
 }
 
-type NilResponse struct{}
+type Request interface {
+	Message
+	SetNonce([]byte) error
+	Nonce() string
+}
 
 func EncryptResponse(authKey *jose.JSONWebKey, response Message) ([]byte, error) {
 	byt, err := response.Marshal()
@@ -49,6 +52,8 @@ func EncryptResponse(authKey *jose.JSONWebKey, response Message) ([]byte, error)
 
 	return []byte(serialized), nil
 }
+
+type NilResponse struct{}
 
 func (nr NilResponse) SetNonce(nonce []byte) error { return nil }
 
@@ -148,4 +153,126 @@ func (rr *ConfigReloadRequest) SetNonce(nonce []byte) error {
 
 func (rr *ConfigReloadRequest) Marshal() ([]byte, error) {
 	return json.Marshal(rr)
+}
+
+type UptimeRequest struct {
+	NonceValue []byte `json:"nonce"`
+}
+
+func (ur *UptimeRequest) Unmarshal(byt []byte) error {
+	return json.Unmarshal(byt, ur)
+}
+
+func (ur *UptimeRequest) Nonce() string {
+	return string(ur.NonceValue)
+}
+
+func (ur *UptimeRequest) SetNonce(nonce []byte) error {
+	ur.NonceValue = nonce
+	return nil
+}
+
+func (ur *UptimeRequest) Marshal() ([]byte, error) {
+	return json.Marshal(ur)
+}
+
+type UptimeResponse struct {
+	Uptime time.Duration `json:"uptime"`
+}
+
+func (ur *UptimeResponse) Unmarshal(byt []byte) error {
+	return json.Unmarshal(byt, ur)
+}
+
+func (ur *UptimeResponse) Marshal() ([]byte, error) {
+	return json.Marshal(ur)
+}
+
+type StartElectionRequest struct {
+	NonceValue []byte `json:"nonce"`
+}
+
+func (ser *StartElectionRequest) Unmarshal(byt []byte) error {
+	return json.Unmarshal(byt, ser)
+}
+
+func (ser *StartElectionRequest) Nonce() string {
+	return string(ser.NonceValue)
+}
+
+func (ser *StartElectionRequest) SetNonce(nonce []byte) error {
+	ser.NonceValue = nonce
+	return nil
+}
+
+func (ser *StartElectionRequest) Marshal() ([]byte, error) {
+	return json.Marshal(ser)
+}
+
+type StartElectionResponse struct {
+	ElectoratePeer string `json:"electorate_peer"`
+}
+
+func (ser *StartElectionResponse) Unmarshal(byt []byte) error {
+	return json.Unmarshal(byt, ser)
+}
+
+func (ser *StartElectionResponse) Marshal() ([]byte, error) {
+	return json.Marshal(ser)
+}
+
+type ElectionVoteRequest struct {
+	NonceValue []byte        `json:"nonce"`
+	Uptime     time.Duration `json:"uptime"`
+}
+
+func (evr *ElectionVoteRequest) Unmarshal(byt []byte) error {
+	return json.Unmarshal(byt, evr)
+}
+
+func (evr *ElectionVoteRequest) Nonce() string {
+	return string(evr.NonceValue)
+}
+
+func (evr *ElectionVoteRequest) SetNonce(nonce []byte) error {
+	evr.NonceValue = nonce
+	return nil
+}
+
+func (evr *ElectionVoteRequest) Marshal() ([]byte, error) {
+	return json.Marshal(evr)
+}
+
+type IdentifyPublisherRequest struct {
+	NonceValue []byte `json:"nonce"`
+}
+
+func (ipr *IdentifyPublisherRequest) Unmarshal(byt []byte) error {
+	return json.Unmarshal(byt, ipr)
+}
+
+func (ipr *IdentifyPublisherRequest) Nonce() string {
+	return string(ipr.NonceValue)
+}
+
+func (ipr *IdentifyPublisherRequest) SetNonce(nonce []byte) error {
+	ipr.NonceValue = nonce
+	return nil
+}
+
+func (ipr *IdentifyPublisherRequest) Marshal() ([]byte, error) {
+	return json.Marshal(ipr)
+}
+
+type IdentifyPublisherResponse struct {
+	Publisher        string `json:"publisher"`
+	EstablishedIndex uint   `json:"established_index"`
+}
+
+func (ipr *IdentifyPublisherResponse) Unmarshal(byt []byte) error {
+	return json.Unmarshal(byt, ipr)
+}
+
+func (ipr *IdentifyPublisherResponse) Marshal() ([]byte, error) {
+	return json.Marshal(ipr)
 }
