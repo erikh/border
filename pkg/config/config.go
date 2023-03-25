@@ -42,6 +42,10 @@ type Peer struct {
 	Key           *jose.JSONWebKey `json:"key"`
 }
 
+func (p *Peer) Name() string {
+	return p.Key.KeyID
+}
+
 type Zone struct {
 	SOA     *dnsconfig.SOA `json:"soa"`
 	NS      *dnsconfig.NS  `json:"ns"`
@@ -70,7 +74,7 @@ func (c *Config) Reload() error {
 
 func (c *Config) FindPeer(name string) (*Peer, error) {
 	for _, peer := range c.Peers {
-		if peer.Key.KeyID == name {
+		if peer.Name() == name {
 			return peer, nil
 		}
 	}

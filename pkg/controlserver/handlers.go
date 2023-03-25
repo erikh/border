@@ -136,7 +136,7 @@ func (s *Server) handlePeerRegister(w http.ResponseWriter, r *http.Request) {
 	s.configMutex.Lock()
 	peers := []*config.Peer{}
 	for _, peer := range s.config.Peers {
-		if peer.Key.KeyID == peerRequest.Peer.Key.KeyID {
+		if peer.Name() == peerRequest.Peer.Name() {
 			peers = append(peers, peerRequest.Peer)
 		} else {
 			peers = append(peers, peer)
