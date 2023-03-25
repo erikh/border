@@ -25,7 +25,12 @@ type Server struct {
 }
 
 func (s *Server) Launch(peerName string, c *config.Config) error {
-	cs, err := controlserver.Start(c, c.Listen.Control, controlserver.NonceExpiration, 100*time.Millisecond)
+	peer, err := c.FindPeer(peerName)
+	if err != nil {
+		return fmt.Errorf("Could not find self in list of peers: %w", err)
+	}
+
+	cs, err := controlserver.Start(c, peer.ControlServer, controlserver.NonceExpiration, 100*time.Millisecond)
 	if err != nil {
 		return err
 	}
@@ -126,9 +131,14 @@ func (s *Server) createBalancers(peerName string, c *config.Config) ([]*lb.Balan
 						return nil, fmt.Errorf("Invalid listener %q (is it listed as a peer?): could not parse: %v", listener, err)
 					}
 
+					peer, err := c.FindPeer(host)
+					if err != nil {
+						return nil, fmt.Errorf("Host %q is not a peer: %w", host, err)
+					}
+
 					// overwrite the listener peer record with the IP:port internally,
 					// this will probably bite me later but is a good solution for now.
-					for _, ip := range c.Peers[host].IPs {
+					for _, ip := range peer.IPs {
 						newListeners = append(newListeners, net.JoinHostPort(ip.String(), port))
 					}
 				}
@@ -142,7 +152,12 @@ func (s *Server) createBalancers(peerName string, c *config.Config) ([]*lb.Balan
 						return nil, fmt.Errorf("Invalid listener %q: could not parse: %v", listener, err)
 					}
 
-					for _, ip := range c.Peers[peerName].IPs {
+					peer, err := c.FindPeer(host)
+					if err != nil {
+						return nil, fmt.Errorf("Host %q is not a peer: %w", host, err)
+					}
+
+					for _, ip := range peer.IPs {
 						if host == ip.String() {
 							bc := lb.BalancerConfig{
 								Kind:                     lbRecord.Kind,

@@ -4,7 +4,6 @@
 # dig -p 5300 -t a test.home.arpa. @localhost
 # dig -p 5300 -t a balancer.test.home.arpa. @localhost
 listen:
-  control: :5309
   dns: :5300
 # generate this key with `border keygenerate` and paste it in. This is an
 # encryption and signing key. Do not use the default!
@@ -17,15 +16,15 @@ auth_key:
 # peers are transformed into load balancer and "glue" records from the
 # configuration.
 peers:
-  foo:
-    key:
+  - key:
       alg: A256KW
       k: VbqOkBfoftuqk7_qzQse70AUScQJJGiR4JUfv-jHGIA
-      kid: control
+      kid: foo
       kty: oct
     ips:
       - ::1
       - 127.0.0.1
+    control_server: 127.0.0.1:5309
 # DNS zones. Note, the records coordinate to all services border provides.
 zones:
   test.home.arpa:

@@ -107,7 +107,6 @@ func (cur *ConfigUpdateRequest) Marshal() ([]byte, error) {
 
 type PeerRegistrationRequest struct {
 	NonceValue []byte       `json:"nonce"`
-	Name       string       `json:"name"`
 	Peer       *config.Peer `json:"peer"`
 }
 

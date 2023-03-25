@@ -12,8 +12,9 @@ import (
 )
 
 var (
-	ErrDump = errors.New("while dumping configuration to disk")
-	ErrLoad = errors.New("while loading configuration from disk")
+	ErrDump         = errors.New("while dumping configuration to disk")
+	ErrLoad         = errors.New("while loading configuration from disk")
+	ErrPeerNotFound = errors.New("peer not found")
 )
 
 var FileMutex sync.RWMutex
@@ -23,21 +24,21 @@ type Config struct {
 	ShutdownWait   time.Duration    `json:"shutdown_wait"`
 	AuthKey        *jose.JSONWebKey `json:"auth_key"`
 	Listen         ListenConfig     `json:"listen"`
-	Publisher      net.IP           `json:"publisher"`
-	Peers          map[string]*Peer `json:"peers"`
+	Publisher      *Peer            `json:"publisher"`
+	Peers          []*Peer          `json:"peers"`
 	Zones          map[string]*Zone `json:"zones"`
 
 	reload chan struct{}
 }
 
 type ListenConfig struct {
-	Control string `json:"control"`
-	DNS     string `json:"dns"`
+	DNS string `json:"dns"`
 }
 
 type Peer struct {
-	IPs []net.IP         `json:"ips"`
-	Key *jose.JSONWebKey `json:"key"`
+	IPs           []net.IP         `json:"ips"`
+	ControlServer string           `json:"control_server"`
+	Key           *jose.JSONWebKey `json:"key"`
 }
 
 type Zone struct {
@@ -64,4 +65,14 @@ func (c *Config) Reload() error {
 	c.reload <- struct{}{}
 
 	return nil
+}
+
+func (c *Config) FindPeer(name string) (*Peer, error) {
+	for _, peer := range c.Peers {
+		if peer.Key.KeyID == name {
+			return peer, nil
+		}
+	}
+
+	return nil, ErrPeerNotFound
 }

@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/erikh/border/pkg/api"
+	"github.com/erikh/border/pkg/config"
 	"github.com/go-jose/go-jose/v3"
 )
 
@@ -133,7 +134,15 @@ func (s *Server) handlePeerRegister(w http.ResponseWriter, r *http.Request) {
 	}
 
 	s.configMutex.Lock()
-	s.config.Peers[peerRequest.Name] = peerRequest.Peer
+	peers := []*config.Peer{}
+	for _, peer := range s.config.Peers {
+		if peer.Key.KeyID == peerRequest.Peer.Key.KeyID {
+			peers = append(peers, peerRequest.Peer)
+		} else {
+			peers = append(peers, peer)
+		}
+	}
+	s.config.Peers = peers
 	s.configMutex.Unlock()
 
 	s.saveConfig(w)
