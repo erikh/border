@@ -195,8 +195,8 @@ func clientAddPeer(args []string) error {
 		Peer: peer,
 	}
 
-	resp := api.NilResponse{}
-	return client.Exchange(api.PathPeerRegistration, req, &resp)
+	_, err = client.Exchange(req)
+	return err
 }
 
 func clientReloadConfig(args []string) error {
@@ -209,7 +209,7 @@ func clientReloadConfig(args []string) error {
 		return errors.New("Invalid Arguments")
 	}
 
-	if err := client.Exchange(api.PathConfigReload, &api.ConfigReloadRequest{}, &api.NilResponse{}); err != nil {
+	if _, err := client.Exchange(&api.ConfigReloadRequest{}); err != nil {
 		return fmt.Errorf("Error updating configuration: %w", err)
 	}
 
@@ -232,7 +232,7 @@ func clientUpdateConfig(args []string) error {
 		return err
 	}
 
-	if err := client.Exchange(api.PathConfigUpdate, &api.ConfigUpdateRequest{Config: c}, &api.NilResponse{}); err != nil {
+	if _, err := client.Exchange(&api.ConfigUpdateRequest{Config: c}); err != nil {
 		return fmt.Errorf("Error updating configuration: %w", err)
 	}
 

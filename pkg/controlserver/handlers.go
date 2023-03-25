@@ -105,7 +105,7 @@ func (s *Server) handleConfigUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	serialized, err := api.EncryptResponse(s.config.AuthKey, api.NilResponse{})
+	serialized, err := api.EncryptResponse(s.config.AuthKey, &api.NilResponse{})
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Error encrypting response: %v", err), http.StatusInternalServerError)
 		return
@@ -147,7 +147,7 @@ func (s *Server) handlePeerRegister(w http.ResponseWriter, r *http.Request) {
 
 	s.saveConfig(w)
 
-	serialized, err := api.EncryptResponse(s.config.AuthKey, api.NilResponse{})
+	serialized, err := api.EncryptResponse(s.config.AuthKey, &api.NilResponse{})
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Error encrypting response: %v", err), http.StatusInternalServerError)
 		return
@@ -169,7 +169,7 @@ func (s *Server) handleConfigReload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	serialized, err := api.EncryptResponse(s.config.AuthKey, api.NilResponse{})
+	serialized, err := api.EncryptResponse(s.config.AuthKey, &api.NilResponse{})
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Error encrypting response: %v", err), http.StatusInternalServerError)
 		return

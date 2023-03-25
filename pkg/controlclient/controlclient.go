@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/erikh/border/pkg/api"
+	"github.com/erikh/border/pkg/config"
 	"github.com/erikh/border/pkg/josekit"
 	"github.com/ghodss/yaml"
 	"github.com/go-jose/go-jose/v3"
@@ -44,6 +45,14 @@ func Load(filename string) (*Client, error) {
 	}
 
 	return &c, nil
+}
+
+func FromPeer(peer *config.Peer) *Client {
+	return &Client{
+		AuthKey: peer.Key,
+		// FIXME should be https
+		BaseURL: fmt.Sprintf("http://%s", peer.ControlServer),
+	}
 }
 
 func (c *Client) GetNonce() ([]byte, error) {
@@ -147,30 +156,32 @@ func (c *Client) SendRequest(endpoint string, msg api.Request) (*http.Response, 
 	return resp, nil
 }
 
-func (c *Client) Exchange(endpoint string, msg api.Request, res api.Message) error {
-	resp, err := c.SendRequest(endpoint, msg)
+func (c *Client) Exchange(msg api.Request) (api.Message, error) {
+	resp, err := c.SendRequest(msg.Endpoint(), msg)
 	if err != nil {
-		return fmt.Errorf("Failed to deliver request: %w", err)
+		return nil, fmt.Errorf("Failed to deliver request: %w", err)
 	}
 
 	byt, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return errors.Join(ErrBadResponse, err)
+		return nil, errors.Join(ErrBadResponse, err)
 	}
 
 	enc, err := jose.ParseEncrypted(string(byt))
 	if err != nil {
-		return errors.Join(ErrDecrypt, err)
+		return nil, errors.Join(ErrDecrypt, err)
 	}
 
 	byt, err = enc.Decrypt(c.AuthKey)
 	if err != nil {
-		return errors.Join(ErrDecrypt, err)
+		return nil, errors.Join(ErrDecrypt, err)
 	}
+
+	res := msg.Response()
 
 	if err := json.Unmarshal(byt, res); err != nil {
-		return errors.Join(ErrBadResponse, err)
+		return nil, errors.Join(ErrBadResponse, err)
 	}
 
-	return nil
+	return res, nil
 }

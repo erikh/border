@@ -11,11 +11,15 @@ import (
 )
 
 const (
-	PathNonce            = "nonce"
-	PathAuthCheck        = "authCheck"
-	PathPeerRegistration = "peerRegister"
-	PathConfigUpdate     = "configUpdate"
-	PathConfigReload     = "configReload"
+	PathNonce             = "nonce"
+	PathAuthCheck         = "authCheck"
+	PathPeerRegistration  = "peerRegister"
+	PathConfigUpdate      = "configUpdate"
+	PathConfigReload      = "configReload"
+	PathUptime            = "uptime"
+	PathStartElection     = "startElection"
+	PathElectionVote      = "electionVote"
+	PathIdentifyPublisher = "identifyPublisher"
 )
 
 type Message interface {
@@ -25,6 +29,8 @@ type Message interface {
 
 type Request interface {
 	Message
+	Response() Message
+	Endpoint() string
 	SetNonce([]byte) error
 	Nonce() string
 }
@@ -55,16 +61,24 @@ func EncryptResponse(authKey *jose.JSONWebKey, response Message) ([]byte, error)
 
 type NilResponse struct{}
 
-func (nr NilResponse) Marshal() ([]byte, error) {
+func (nr *NilResponse) Marshal() ([]byte, error) {
 	return []byte("{}"), nil
 }
 
-func (nr NilResponse) Unmarshal(byt []byte) error {
+func (nr *NilResponse) Unmarshal(byt []byte) error {
 	return nil
 }
 
 // both the request for /authCheck, and the response for /nonce
 type AuthCheck []byte
+
+func (ac AuthCheck) Response() Message {
+	return &NilResponse{}
+}
+
+func (ac AuthCheck) Endpoint() string {
+	return PathAuthCheck
+}
 
 func (ac AuthCheck) Unmarshal(byt []byte) error {
 	copy(ac, byt)
@@ -86,6 +100,14 @@ func (ac AuthCheck) Marshal() ([]byte, error) {
 type ConfigUpdateRequest struct {
 	NonceValue []byte         `json:"nonce"`
 	Config     *config.Config `json:"config"`
+}
+
+func (cur *ConfigUpdateRequest) Response() Message {
+	return &NilResponse{}
+}
+
+func (cur *ConfigUpdateRequest) Endpoint() string {
+	return PathConfigUpdate
 }
 
 func (cur *ConfigUpdateRequest) Unmarshal(byt []byte) error {
@@ -110,6 +132,14 @@ type PeerRegistrationRequest struct {
 	Peer       *config.Peer `json:"peer"`
 }
 
+func (peer *PeerRegistrationRequest) Response() Message {
+	return &NilResponse{}
+}
+
+func (peer *PeerRegistrationRequest) Endpoint() string {
+	return PathPeerRegistration
+}
+
 func (peer *PeerRegistrationRequest) Unmarshal(byt []byte) error {
 	return json.Unmarshal(byt, peer)
 }
@@ -131,25 +161,41 @@ type ConfigReloadRequest struct {
 	NonceValue []byte `json:"nonce"`
 }
 
-func (rr *ConfigReloadRequest) Unmarshal(byt []byte) error {
-	return json.Unmarshal(byt, rr)
+func (crr *ConfigReloadRequest) Response() Message {
+	return &NilResponse{}
 }
 
-func (rr *ConfigReloadRequest) Nonce() string {
-	return string(rr.NonceValue)
+func (crr *ConfigReloadRequest) Endpoint() string {
+	return PathConfigReload
 }
 
-func (rr *ConfigReloadRequest) SetNonce(nonce []byte) error {
-	rr.NonceValue = nonce
+func (crr *ConfigReloadRequest) Unmarshal(byt []byte) error {
+	return json.Unmarshal(byt, crr)
+}
+
+func (crr *ConfigReloadRequest) Nonce() string {
+	return string(crr.NonceValue)
+}
+
+func (crr *ConfigReloadRequest) SetNonce(nonce []byte) error {
+	crr.NonceValue = nonce
 	return nil
 }
 
-func (rr *ConfigReloadRequest) Marshal() ([]byte, error) {
-	return json.Marshal(rr)
+func (crr *ConfigReloadRequest) Marshal() ([]byte, error) {
+	return json.Marshal(crr)
 }
 
 type UptimeRequest struct {
 	NonceValue []byte `json:"nonce"`
+}
+
+func (ur *UptimeRequest) Response() Message {
+	return &UptimeResponse{}
+}
+
+func (ur *UptimeRequest) Endpoint() string {
+	return PathUptime
 }
 
 func (ur *UptimeRequest) Unmarshal(byt []byte) error {
@@ -183,6 +229,14 @@ func (ur *UptimeResponse) Marshal() ([]byte, error) {
 
 type StartElectionRequest struct {
 	NonceValue []byte `json:"nonce"`
+}
+
+func (ser *StartElectionRequest) Response() Message {
+	return &StartElectionResponse{}
+}
+
+func (ser *StartElectionRequest) Endpoint() string {
+	return PathStartElection
 }
 
 func (ser *StartElectionRequest) Unmarshal(byt []byte) error {
@@ -219,6 +273,14 @@ type ElectionVoteRequest struct {
 	Uptime     time.Duration `json:"uptime"`
 }
 
+func (evr *ElectionVoteRequest) Response() Message {
+	return &NilResponse{}
+}
+
+func (evr *ElectionVoteRequest) Endpoint() string {
+	return PathElectionVote
+}
+
 func (evr *ElectionVoteRequest) Unmarshal(byt []byte) error {
 	return json.Unmarshal(byt, evr)
 }
@@ -238,6 +300,14 @@ func (evr *ElectionVoteRequest) Marshal() ([]byte, error) {
 
 type IdentifyPublisherRequest struct {
 	NonceValue []byte `json:"nonce"`
+}
+
+func (ipr *IdentifyPublisherRequest) Response() Message {
+	return &IdentifyPublisherResponse{}
+}
+
+func (ipr *IdentifyPublisherRequest) Endpoint() string {
+	return PathIdentifyPublisher
 }
 
 func (ipr *IdentifyPublisherRequest) Unmarshal(byt []byte) error {

@@ -85,9 +85,7 @@ func testHandler(t *testing.T, c *config.Config, route, typ string, payload api.
 
 	client := makeClient(server.listener.Addr(), server.config.AuthKey)
 
-	var res api.NilResponse
-
-	if err := client.Exchange(route, payload, &res); err != nil {
+	if _, err := client.Exchange(payload); err != nil {
 		t.Fatal(err)
 	}
 
