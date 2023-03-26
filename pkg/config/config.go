@@ -18,6 +18,7 @@ var (
 )
 
 var FileMutex sync.RWMutex
+var EditMutex sync.Mutex
 
 type Config struct {
 	FilenamePrefix string           `json:"-"` // prefix of filename to save to and read from
@@ -66,6 +67,8 @@ func (c *Config) Reload() error {
 		return fmt.Errorf("While reloading configuration: %w", err)
 	}
 
+	EditMutex.Lock()
+	defer EditMutex.Unlock()
 	*c = *newConfig
 	c.reload <- struct{}{}
 
@@ -73,6 +76,7 @@ func (c *Config) Reload() error {
 }
 
 func (c *Config) FindPeer(name string) (*Peer, error) {
+	// FIXME should take a mutex
 	for _, peer := range c.Peers {
 		if peer.Name() == name {
 			return peer, nil
@@ -80,4 +84,16 @@ func (c *Config) FindPeer(name string) (*Peer, error) {
 	}
 
 	return nil, ErrPeerNotFound
+}
+
+func (c *Config) SetPeers(peers []*Peer) {
+	EditMutex.Lock()
+	defer EditMutex.Unlock()
+	c.Peers = peers
+}
+
+func (c *Config) SetPublisher(publisher *Peer) {
+	EditMutex.Lock()
+	defer EditMutex.Unlock()
+	c.Publisher = publisher
 }

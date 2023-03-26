@@ -82,7 +82,11 @@ func (s *Server) handleIdentifyPublisher(req api.Request) (api.Message, error) {
 	defer s.electionMutex.Unlock()
 
 	if s.election == nil {
-		return nil, errors.New("Peer has never held an election")
+		resp := req.Response().(*api.IdentifyPublisherResponse)
+		resp.EstablishedIndex = s.lastVoteIndex
+		resp.Publisher = s.config.Publisher.Name()
+
+		return resp, nil
 	}
 
 	if !s.election.Voter().ReadyToVote() {

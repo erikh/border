@@ -1,13 +1,19 @@
 package launcher
 
 import (
+	"bytes"
 	"context"
+	"errors"
 	"fmt"
+	"io"
 	"log"
 	"net"
+	"net/http"
 	"time"
 
+	"github.com/erikh/border/pkg/api"
 	"github.com/erikh/border/pkg/config"
+	"github.com/erikh/border/pkg/controlclient"
 	"github.com/erikh/border/pkg/controlserver"
 	"github.com/erikh/border/pkg/dnsconfig"
 	"github.com/erikh/border/pkg/dnsserver"
@@ -185,6 +191,116 @@ func (s *Server) createBalancers(peerName string, c *config.Config) ([]*lb.Balan
 
 func (s *Server) buildHealthChecks(c *config.Config) (*healthcheck.HealthChecker, error) {
 	checks := []*healthcheck.HealthCheckAction{}
+
+	for _, peer := range c.Peers {
+		check := &healthcheck.HealthCheck{
+			Name: fmt.Sprintf("%q peer check", peer.Name()),
+			Type: healthcheck.TypeHTTP,
+			// FIXME these shouldn't be hard coded. Maybe keep them as a part of the
+			// peer
+			Timeout:  time.Second,
+			Failures: 3,
+		}
+
+		check.SetTarget(fmt.Sprintf("http://%s/%s", peer.ControlServer, api.PathPing))
+		check.SetRequestTransformer(func(req interface{}) interface{} {
+			r := req.(*http.Request)
+			client := controlclient.FromPeer(peer)
+			out, err := client.PrepareRequest(&api.PingRequest{}, true)
+			if err != nil {
+				log.Printf("While preparing HTTP ping monitor for peer %q: %v", peer.Name(), err)
+			}
+			r.Body = io.NopCloser(bytes.NewBuffer(out))
+			return r
+		})
+
+		elect := func() error {
+			var (
+				electoratePeer string
+				index          uint
+			)
+
+			for _, peer := range s.config.Peers {
+				client := controlclient.FromPeer(peer)
+				resp, err := client.Exchange(&api.StartElectionRequest{}, true)
+				if err != nil {
+					return err
+				}
+
+				if electoratePeer == "" {
+					electoratePeer = resp.(*api.StartElectionResponse).ElectoratePeer
+				}
+				idx := resp.(*api.StartElectionResponse).Index
+				if idx > index {
+					electoratePeer = resp.(*api.StartElectionResponse).ElectoratePeer
+					index = idx
+				}
+
+			}
+
+			electorate, err := s.config.FindPeer(electoratePeer)
+			if err != nil {
+				return err
+			}
+
+			electorateClient := controlclient.FromPeer(electorate)
+			_, err = electorateClient.Exchange(&api.ElectionVoteRequest{Index: index, Me: peer.Name(), Peer: electoratePeer}, true)
+			if err != nil {
+				return err
+			}
+
+			resp, err := electorateClient.Exchange(&api.IdentifyPublisherRequest{}, true)
+			if err != nil {
+				return err
+			}
+
+			if index == resp.(*api.IdentifyPublisherResponse).EstablishedIndex {
+				publisher, err := s.config.FindPeer(resp.(*api.IdentifyPublisherResponse).Publisher)
+				if err != nil {
+					return fmt.Errorf("Could not find elected peer %q: %w", resp.(*api.IdentifyPublisherResponse).Publisher, err)
+				}
+
+				s.config.SetPublisher(publisher)
+			} else {
+				return errors.New("Index drift after election")
+			}
+
+			return nil
+		}
+
+		revived := func(hc *healthcheck.HealthCheck) error {
+			peers := s.config.Peers
+			peers = append(peers, peer)
+			s.config.SetPeers(peers)
+
+			return elect()
+		}
+
+		failed := func(hc *healthcheck.HealthCheck) error {
+			peers := []*config.Peer{}
+			for _, origPeer := range s.config.Peers {
+				if peer.Name() != origPeer.Name() {
+					peers = append(peers, origPeer)
+				}
+			}
+
+			s.config.SetPeers(peers)
+
+			if hc.Target() == s.config.Publisher.Name() {
+				if err := elect(); err != nil {
+					return err
+				}
+			}
+
+			return nil
+		}
+
+		checks = append(checks, &healthcheck.HealthCheckAction{
+			Check:        check,
+			FailedAction: failed,
+			ReviveAction: revived,
+		})
+	}
 
 	for _, zone := range c.Zones {
 		for _, rec := range zone.Records {
