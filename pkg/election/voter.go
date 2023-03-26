@@ -2,28 +2,35 @@ package election
 
 import (
 	"sync"
-	"time"
 
 	"github.com/erikh/border/pkg/config"
 )
 
 type Voter struct {
 	config  *config.Config
-	uptimes map[string]time.Duration
+	choices map[string]string
+	index   uint
 	mutex   sync.RWMutex
 }
 
-func NewVoter(c *config.Config) *Voter {
+func NewVoter(c *config.Config, index uint) *Voter {
 	return &Voter{
 		config:  c,
-		uptimes: map[string]time.Duration{},
+		choices: map[string]string{},
+		index:   index,
 	}
 }
 
-func (v *Voter) RegisterPeer(peer *config.Peer, uptime time.Duration) {
+func (v *Voter) Index() uint {
+	return v.index
+}
+
+func (v *Voter) RegisterVote(voter, peer *config.Peer) {
 	v.mutex.Lock()
-	v.uptimes[peer.Name()] = uptime
-	v.mutex.Unlock()
+	defer v.mutex.Unlock()
+	if _, ok := v.choices[voter.Name()]; !ok {
+		v.choices[voter.Name()] = peer.Name()
+	}
 }
 
 func (v *Voter) ReadyToVote() bool {
@@ -31,7 +38,7 @@ func (v *Voter) ReadyToVote() bool {
 	defer v.mutex.RUnlock()
 
 	for _, peer := range v.config.Peers {
-		if _, ok := v.uptimes[peer.Name()]; !ok {
+		if _, ok := v.choices[peer.Name()]; !ok {
 			return false
 		}
 	}
@@ -43,17 +50,23 @@ func (v *Voter) Vote() (*config.Peer, error) {
 	v.mutex.RLock()
 	defer v.mutex.RUnlock()
 
+	choices := map[string]uint{}
+
+	for _, choice := range v.choices {
+		choices[choice]++
+	}
+
 	var (
-		lowestUptime time.Duration
-		lowestName   string
+		highestChoice      string
+		highestChoiceCount uint
 	)
 
-	for name, uptime := range v.uptimes {
-		if lowestUptime == 0 || lowestUptime > uptime {
-			lowestUptime = uptime
-			lowestName = name
+	for choice, count := range choices {
+		if highestChoice == "" || highestChoiceCount < count {
+			highestChoice = choice
+			highestChoiceCount = count
 		}
 	}
 
-	return v.config.FindPeer(lowestName)
+	return v.config.FindPeer(highestChoice)
 }

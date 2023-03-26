@@ -32,7 +32,6 @@ type Server struct {
 	me             *config.Peer
 	bootTime       time.Time
 	election       *election.Election
-	voter          *election.Voter // NOTE this is only used for picking an electoratePeer
 	electoratePeer string
 	lastVoteIndex  uint
 
@@ -77,7 +76,6 @@ func Start(config *config.Config, me *config.Peer, listenSpec string, expireTime
 		cancelSupervision: cancel,
 		expireTime:        expireTime,
 		bootTime:          time.Now(),
-		voter:             election.NewVoter(config),
 		me:                me,
 		debugLog:          os.Getenv("DEBUG_LOG") != "",
 		debugPayload:      os.Getenv("DEBUG_LOG_PAYLOAD") != "",
@@ -188,8 +186,8 @@ func (s *Server) configureMux() *http.ServeMux {
 	s.makeHandlerFunc(mux, http.MethodGet, &api.PeerNonceRequest{}, s.me.Key, s.handleNonce)
 	s.makeHandlerFunc(mux, http.MethodPut, &api.UptimeRequest{}, s.me.Key, s.handleUptime)
 	s.makeHandlerFunc(mux, http.MethodPut, &api.StartElectionRequest{}, s.me.Key, s.handleStartElection)
-	// s.makeHandlerFunc(mux, &api.ElectionVoteRequest{}, s.me.Key, s.handleElectionVote)
-	// s.makeHandlerFunc(mux, &api.IdentifyPublisherRequest{}, s.me.Key, s.handleIdentifyPublisher)
+	s.makeHandlerFunc(mux, http.MethodPut, &api.ElectionVoteRequest{}, s.me.Key, s.handleElectionVote)
+	s.makeHandlerFunc(mux, http.MethodPut, &api.IdentifyPublisherRequest{}, s.me.Key, s.handleIdentifyPublisher)
 
 	return mux
 }

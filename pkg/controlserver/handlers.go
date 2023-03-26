@@ -3,6 +3,7 @@ package controlserver
 import (
 	"context"
 	"crypto/rand"
+	"errors"
 	"fmt"
 	"time"
 
@@ -105,6 +106,8 @@ func (s *Server) handleStartElection(req api.Request) (api.Message, error) {
 	defer cancel()
 
 	s.electionMutex.Lock()
+	defer s.electionMutex.Unlock()
+
 	s.election = election.NewElection(ctx, election.ElectionContext{
 		Config:   s.config,
 		Me:       s.me,
@@ -118,10 +121,57 @@ func (s *Server) handleStartElection(req api.Request) (api.Message, error) {
 	}
 
 	s.electoratePeer = electoratePeer
-	s.electionMutex.Unlock()
-
 	resp.ElectoratePeer = electoratePeer
 	resp.Index = s.election.Index()
+	s.lastVoteIndex = s.election.Index()
+
+	return resp, nil
+}
+
+func (s *Server) handleElectionVote(req api.Request) (api.Message, error) {
+	evr := req.(*api.ElectionVoteRequest)
+
+	s.electionMutex.Lock()
+	defer s.electionMutex.Unlock()
+
+	if s.election != nil && s.election.Index() != evr.Index && s.electoratePeer == s.me.Name() {
+		return nil, errors.New("Vote indexes did not match, or peer was not this instance; is this peer the right electorate?")
+	}
+
+	me, err := s.config.FindPeer(evr.Me)
+	if err != nil {
+		return nil, err
+	}
+
+	peer, err := s.config.FindPeer(evr.Peer)
+	if err != nil {
+		return nil, err
+	}
+
+	s.election.RegisterVote(me, peer)
+	return req.Response(), nil
+}
+
+func (s *Server) handleIdentifyPublisher(req api.Request) (api.Message, error) {
+	s.electionMutex.Lock()
+	defer s.electionMutex.Unlock()
+
+	if s.election == nil {
+		return nil, errors.New("Peer has never held an election")
+	}
+
+	if !s.election.Voter().ReadyToVote() {
+		return nil, errors.New("Voter is not ready to vote")
+	}
+
+	vote, err := s.election.Voter().Vote()
+	if err != nil {
+		return nil, err
+	}
+
+	resp := req.Response().(*api.IdentifyPublisherResponse)
+	resp.EstablishedIndex = s.election.Index()
+	resp.Publisher = vote.Name()
 
 	return resp, nil
 }

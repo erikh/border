@@ -361,10 +361,10 @@ func (ser *StartElectionResponse) Marshal() ([]byte, error) {
 }
 
 type ElectionVoteRequest struct {
-	NonceValue []byte        `json:"nonce"`
-	Me         string        `json:"me"`
-	Uptime     time.Duration `json:"uptime"`
-	Index      uint          `json:"index"`
+	NonceValue []byte `json:"nonce"`
+	Peer       string `json:"peer"`
+	Me         string `json:"me"`
+	Index      uint   `json:"index"`
 }
 
 func (*ElectionVoteRequest) New() Request {
