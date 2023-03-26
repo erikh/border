@@ -21,6 +21,7 @@ const (
 	PathStartElection     = "startElection"
 	PathElectionVote      = "electionVote"
 	PathIdentifyPublisher = "identifyPublisher"
+	PathPing              = "ping"
 )
 
 const (
@@ -440,4 +441,37 @@ func (ipr *IdentifyPublisherResponse) Unmarshal(byt []byte) error {
 
 func (ipr *IdentifyPublisherResponse) Marshal() ([]byte, error) {
 	return json.Marshal(ipr)
+}
+
+type PingRequest struct {
+	NonceValue []byte `json:"nonce"`
+}
+
+func (*PingRequest) New() Request {
+	return &PingRequest{}
+}
+
+func (*PingRequest) Response() Message {
+	return &NilResponse{}
+}
+
+func (*PingRequest) Endpoint() string {
+	return PathPing
+}
+
+func (pr *PingRequest) Unmarshal(byt []byte) error {
+	return json.Unmarshal(byt, pr)
+}
+
+func (pr *PingRequest) Nonce() string {
+	return string(pr.NonceValue)
+}
+
+func (pr *PingRequest) SetNonce(nonce []byte) error {
+	pr.NonceValue = nonce
+	return nil
+}
+
+func (pr *PingRequest) Marshal() ([]byte, error) {
+	return json.Marshal(pr)
 }

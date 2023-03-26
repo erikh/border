@@ -188,6 +188,7 @@ func (s *Server) configureMux() *http.ServeMux {
 	s.makeHandlerFunc(mux, http.MethodPut, &api.StartElectionRequest{}, s.me.Key, s.handleStartElection)
 	s.makeHandlerFunc(mux, http.MethodPut, &api.ElectionVoteRequest{}, s.me.Key, s.handleElectionVote)
 	s.makeHandlerFunc(mux, http.MethodPut, &api.IdentifyPublisherRequest{}, s.me.Key, s.handleIdentifyPublisher)
+	s.makeHandlerFunc(mux, http.MethodPut, &api.PingRequest{}, s.me.Key, s.handlePing)
 
 	return mux
 }
