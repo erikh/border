@@ -135,7 +135,7 @@ func (s *Server) handleElectionVote(req api.Request) (api.Message, error) {
 	defer s.electionMutex.Unlock()
 
 	if s.election != nil && s.election.Index() != evr.Index && s.electoratePeer == s.me.Name() {
-		return nil, errors.New("Vote indexes did not match, or peer was not this instance; is this peer the right electorate?")
+		return nil, errors.New("Vote indexes did not match, or electorate was not this instance; is this peer the right electorate?")
 	}
 
 	me, err := s.config.FindPeer(evr.Me)
