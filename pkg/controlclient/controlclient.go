@@ -99,12 +99,7 @@ func (c *Client) GetNonce(peer bool) ([]byte, error) {
 	return nonce, nil
 }
 
-func (c *Client) SendRequest(endpoint string, msg api.Request, peer bool) (*http.Response, error) {
-	baseurl, err := url.Parse(c.BaseURL)
-	if err != nil {
-		return nil, fmt.Errorf("Base URL %q is invalid: %w", c.BaseURL, err)
-	}
-
+func (c *Client) PrepareRequest(msg api.Request, peer bool) ([]byte, error) {
 	nonce, err := c.GetNonce(peer)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to retrieve nonce: %w", err)
@@ -134,15 +129,29 @@ func (c *Client) SendRequest(endpoint string, msg api.Request, peer bool) (*http
 		return nil, errors.Join(ErrEncrypt, err)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-	defer cancel()
+	return []byte(out), nil
+}
+
+func (c *Client) SendRequest(endpoint string, msg api.Request, peer bool) (*http.Response, error) {
+	baseurl, err := url.Parse(c.BaseURL)
+	if err != nil {
+		return nil, fmt.Errorf("Base URL %q is invalid: %w", c.BaseURL, err)
+	}
 
 	u := baseurl.JoinPath("/" + endpoint)
 
-	req, err := http.NewRequest("PUT", u.String(), bytes.NewBuffer([]byte(out)))
+	out, err := c.PrepareRequest(msg, peer)
 	if err != nil {
 		return nil, err
 	}
+
+	req, err := http.NewRequest("PUT", u.String(), bytes.NewBuffer(out))
+	if err != nil {
+		return nil, err
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
 
 	resp, err := http.DefaultClient.Do(req.WithContext(ctx))
 	if err != nil {
