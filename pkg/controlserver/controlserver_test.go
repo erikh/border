@@ -48,7 +48,7 @@ func makeConfig(t *testing.T) *config.Config {
 	return c
 }
 
-func makeClient(addr net.Addr, authKey *jose.JSONWebKey) controlclient.Client {
+func makeClient(addr string, authKey *jose.JSONWebKey) controlclient.Client {
 	return controlclient.Client{
 		AuthKey: authKey,
 		BaseURL: fmt.Sprintf("http://%s", addr),
@@ -83,9 +83,9 @@ func testHandler(t *testing.T, c *config.Config, route, typ string, payload api.
 		server.Shutdown(ctx) // nolint:errcheck
 	})
 
-	client := makeClient(server.listener.Addr(), server.config.AuthKey)
+	client := makeClient(server.listener.Addr().String(), server.config.AuthKey)
 
-	if _, err := client.Exchange(payload); err != nil {
+	if _, err := client.Exchange(payload, false); err != nil {
 		t.Fatal(err)
 	}
 

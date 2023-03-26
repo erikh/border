@@ -55,13 +55,18 @@ func FromPeer(peer *config.Peer) *Client {
 	}
 }
 
-func (c *Client) GetNonce() ([]byte, error) {
+func (c *Client) GetNonce(peer bool) ([]byte, error) {
 	baseurl, err := url.Parse(c.BaseURL)
 	if err != nil {
 		return nil, fmt.Errorf("Base URL %q is invalid: %w", c.BaseURL, err)
 	}
 
-	u := baseurl.JoinPath("/" + api.PathNonce)
+	path := api.PathNonce
+	if peer {
+		path = api.PathPeerNonce
+	}
+
+	u := baseurl.JoinPath("/" + path)
 	resp, err := http.Get(u.String())
 	if err != nil {
 		return nil, errors.Join(ErrAcquireNonce, err)
@@ -94,13 +99,13 @@ func (c *Client) GetNonce() ([]byte, error) {
 	return nonce, nil
 }
 
-func (c *Client) SendRequest(endpoint string, msg api.Request) (*http.Response, error) {
+func (c *Client) SendRequest(endpoint string, msg api.Request, peer bool) (*http.Response, error) {
 	baseurl, err := url.Parse(c.BaseURL)
 	if err != nil {
 		return nil, fmt.Errorf("Base URL %q is invalid: %w", c.BaseURL, err)
 	}
 
-	nonce, err := c.GetNonce()
+	nonce, err := c.GetNonce(peer)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to retrieve nonce: %w", err)
 	}
@@ -156,8 +161,8 @@ func (c *Client) SendRequest(endpoint string, msg api.Request) (*http.Response, 
 	return resp, nil
 }
 
-func (c *Client) Exchange(msg api.Request) (api.Message, error) {
-	resp, err := c.SendRequest(msg.Endpoint(), msg)
+func (c *Client) Exchange(msg api.Request, peer bool) (api.Message, error) {
+	resp, err := c.SendRequest(msg.Endpoint(), msg, peer)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to deliver request: %w", err)
 	}

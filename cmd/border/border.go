@@ -145,7 +145,7 @@ func clientAuthCheck(args []string) error {
 
 	authCheck := make(api.AuthCheck, api.NonceSize)
 
-	if _, err := client.SendRequest(api.PathAuthCheck, &authCheck); err != nil {
+	if _, err := client.SendRequest(api.PathAuthCheck, &authCheck, false); err != nil {
 		return fmt.Errorf("Authentication failed: %w", err)
 	}
 
@@ -194,7 +194,7 @@ func clientAddPeer(args []string) error {
 		Peer: peer,
 	}
 
-	_, err = client.Exchange(req)
+	_, err = client.Exchange(req, false)
 	return err
 }
 
@@ -208,7 +208,7 @@ func clientReloadConfig(args []string) error {
 		return errors.New("Invalid Arguments")
 	}
 
-	if _, err := client.Exchange(&api.ConfigReloadRequest{}); err != nil {
+	if _, err := client.Exchange(&api.ConfigReloadRequest{}, false); err != nil {
 		return fmt.Errorf("Error updating configuration: %w", err)
 	}
 
@@ -231,7 +231,7 @@ func clientUpdateConfig(args []string) error {
 		return err
 	}
 
-	if _, err := client.Exchange(&api.ConfigUpdateRequest{Config: c}); err != nil {
+	if _, err := client.Exchange(&api.ConfigUpdateRequest{Config: c}, false); err != nil {
 		return fmt.Errorf("Error updating configuration: %w", err)
 	}
 

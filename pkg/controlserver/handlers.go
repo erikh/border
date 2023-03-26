@@ -1,7 +1,6 @@
 package controlserver
 
 import (
-	"context"
 	"crypto/rand"
 	"errors"
 	"fmt"
@@ -10,6 +9,10 @@ import (
 	"github.com/erikh/border/pkg/api"
 	"github.com/erikh/border/pkg/config"
 	"github.com/erikh/border/pkg/election"
+)
+
+var (
+	ErrElectionIncomplete = errors.New("Election has not completed")
 )
 
 // encrypts a nonce with the key. for authentication challenges, it is expected
@@ -102,13 +105,14 @@ func (s *Server) handleUptime(req api.Request) (api.Message, error) {
 func (s *Server) handleStartElection(req api.Request) (api.Message, error) {
 	resp := req.Response().(*api.StartElectionResponse)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-
 	s.electionMutex.Lock()
 	defer s.electionMutex.Unlock()
 
-	s.election = election.NewElection(ctx, election.ElectionContext{
+	if s.election != nil && s.election.Index() == s.lastVoteIndex && !s.election.Voter().ReadyToVote() {
+		return nil, ErrElectionIncomplete
+	}
+
+	s.election = election.NewElection(election.ElectionContext{
 		Config:   s.config,
 		Me:       s.me,
 		Index:    s.lastVoteIndex + 1,
@@ -117,7 +121,7 @@ func (s *Server) handleStartElection(req api.Request) (api.Message, error) {
 
 	electoratePeer, err := s.election.ElectoratePeer()
 	if err != nil {
-		return nil, fmt.Errorf("Error determining electorate peer: %v", err)
+		return nil, fmt.Errorf("Error determining electorate peer: %w", err)
 	}
 
 	s.electoratePeer = electoratePeer
@@ -134,8 +138,12 @@ func (s *Server) handleElectionVote(req api.Request) (api.Message, error) {
 	s.electionMutex.Lock()
 	defer s.electionMutex.Unlock()
 
-	if s.election != nil && s.election.Index() != evr.Index && s.electoratePeer == s.me.Name() {
+	if s.election == nil || (s.election != nil && s.election.Index() != evr.Index) || s.electoratePeer != s.me.Name() {
 		return nil, errors.New("Vote indexes did not match, or electorate was not this instance; is this peer the right electorate?")
+	}
+
+	if s.election.Voter().ReadyToVote() {
+		return nil, errors.New("All votes have been cast")
 	}
 
 	me, err := s.config.FindPeer(evr.Me)
