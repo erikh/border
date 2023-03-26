@@ -12,6 +12,7 @@ import (
 
 const (
 	PathNonce             = "nonce"
+	PathPeerNonce         = "peerNonce"
 	PathAuthCheck         = "authCheck"
 	PathPeerRegistration  = "peerRegister"
 	PathConfigUpdate      = "configUpdate"
@@ -22,6 +23,10 @@ const (
 	PathIdentifyPublisher = "identifyPublisher"
 )
 
+const (
+	NonceSize = 128
+)
+
 type Message interface {
 	Unmarshal([]byte) error
 	Marshal() ([]byte, error)
@@ -29,6 +34,8 @@ type Message interface {
 
 type Request interface {
 	Message
+
+	New() Request
 	Response() Message
 	Endpoint() string
 	SetNonce([]byte) error
@@ -69,8 +76,72 @@ func (nr *NilResponse) Unmarshal(byt []byte) error {
 	return nil
 }
 
+type NonceRequest struct{}
+
+func (*NonceRequest) New() Request {
+	return &NonceRequest{}
+}
+
+func (*NonceRequest) Response() Message {
+	return AuthCheck{}
+}
+
+func (*NonceRequest) Endpoint() string {
+	return PathNonce
+}
+
+func (*NonceRequest) Unmarshal(byt []byte) error {
+	return nil
+}
+
+func (*NonceRequest) Nonce() string {
+	return ""
+}
+
+func (*NonceRequest) SetNonce(nonce []byte) error {
+	return nil
+}
+
+func (*NonceRequest) Marshal() ([]byte, error) {
+	return []byte("{}"), nil
+}
+
+type PeerNonceRequest struct{}
+
+func (*PeerNonceRequest) New() Request {
+	return &PeerNonceRequest{}
+}
+
+func (*PeerNonceRequest) Response() Message {
+	return AuthCheck{}
+}
+
+func (*PeerNonceRequest) Endpoint() string {
+	return PathPeerNonce
+}
+
+func (*PeerNonceRequest) Unmarshal(byt []byte) error {
+	return nil
+}
+
+func (*PeerNonceRequest) Nonce() string {
+	return ""
+}
+
+func (*PeerNonceRequest) SetNonce(nonce []byte) error {
+	return nil
+}
+
+func (*PeerNonceRequest) Marshal() ([]byte, error) {
+	return []byte("{}"), nil
+}
+
 // both the request for /authCheck, and the response for /nonce
 type AuthCheck []byte
+
+func (AuthCheck) New() Request {
+	return make(AuthCheck, NonceSize)
+}
 
 func (ac AuthCheck) Response() Message {
 	return &NilResponse{}
@@ -100,6 +171,10 @@ func (ac AuthCheck) Marshal() ([]byte, error) {
 type ConfigUpdateRequest struct {
 	NonceValue []byte         `json:"nonce"`
 	Config     *config.Config `json:"config"`
+}
+
+func (*ConfigUpdateRequest) New() Request {
+	return &ConfigUpdateRequest{}
 }
 
 func (cur *ConfigUpdateRequest) Response() Message {
@@ -132,6 +207,10 @@ type PeerRegistrationRequest struct {
 	Peer       *config.Peer `json:"peer"`
 }
 
+func (*PeerRegistrationRequest) New() Request {
+	return &PeerRegistrationRequest{}
+}
+
 func (peer *PeerRegistrationRequest) Response() Message {
 	return &NilResponse{}
 }
@@ -161,6 +240,10 @@ type ConfigReloadRequest struct {
 	NonceValue []byte `json:"nonce"`
 }
 
+func (*ConfigReloadRequest) New() Request {
+	return &ConfigReloadRequest{}
+}
+
 func (crr *ConfigReloadRequest) Response() Message {
 	return &NilResponse{}
 }
@@ -188,6 +271,10 @@ func (crr *ConfigReloadRequest) Marshal() ([]byte, error) {
 
 type UptimeRequest struct {
 	NonceValue []byte `json:"nonce"`
+}
+
+func (*UptimeRequest) New() Request {
+	return &UptimeRequest{}
 }
 
 func (ur *UptimeRequest) Response() Message {
@@ -231,6 +318,10 @@ type StartElectionRequest struct {
 	NonceValue []byte `json:"nonce"`
 }
 
+func (*StartElectionRequest) New() Request {
+	return &StartElectionRequest{}
+}
+
 func (ser *StartElectionRequest) Response() Message {
 	return &StartElectionResponse{}
 }
@@ -258,6 +349,7 @@ func (ser *StartElectionRequest) Marshal() ([]byte, error) {
 
 type StartElectionResponse struct {
 	ElectoratePeer string `json:"electorate_peer"`
+	Index          uint   `json:"index"`
 }
 
 func (ser *StartElectionResponse) Unmarshal(byt []byte) error {
@@ -272,6 +364,11 @@ type ElectionVoteRequest struct {
 	NonceValue []byte        `json:"nonce"`
 	Me         string        `json:"me"`
 	Uptime     time.Duration `json:"uptime"`
+	Index      uint          `json:"index"`
+}
+
+func (*ElectionVoteRequest) New() Request {
+	return &ElectionVoteRequest{}
 }
 
 func (evr *ElectionVoteRequest) Response() Message {
@@ -301,6 +398,10 @@ func (evr *ElectionVoteRequest) Marshal() ([]byte, error) {
 
 type IdentifyPublisherRequest struct {
 	NonceValue []byte `json:"nonce"`
+}
+
+func (*IdentifyPublisherRequest) New() Request {
+	return &IdentifyPublisherRequest{}
 }
 
 func (ipr *IdentifyPublisherRequest) Response() Message {

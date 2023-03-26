@@ -25,7 +25,12 @@ type Server struct {
 }
 
 func (s *Server) Launch(peerName string, c *config.Config) error {
-	cs, err := controlserver.Start(c, c.Listen.Control, controlserver.NonceExpiration, 100*time.Millisecond)
+	peer, err := c.FindPeer(peerName)
+	if err != nil {
+		return err
+	}
+
+	cs, err := controlserver.Start(c, peer, c.Listen.Control, controlserver.NonceExpiration, 100*time.Millisecond)
 	if err != nil {
 		return err
 	}

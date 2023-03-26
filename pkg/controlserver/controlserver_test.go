@@ -73,7 +73,7 @@ func authCheck(server *Server, body io.Reader) (*http.Response, error) {
 }
 
 func testHandler(t *testing.T, c *config.Config, route, typ string, payload api.Request) *Server {
-	server, err := Start(c, ":0", 10*time.Millisecond, 10*time.Millisecond)
+	server, err := Start(c, c.Peers[0], ":0", 10*time.Millisecond, 10*time.Millisecond)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -93,7 +93,9 @@ func testHandler(t *testing.T, c *config.Config, route, typ string, payload api.
 }
 
 func TestStartupShutdown(t *testing.T) {
-	server, err := Start(makeConfig(t), ":0", 10*time.Millisecond, 10*time.Millisecond)
+	c := makeConfig(t)
+
+	server, err := Start(c, c.Peers[0], ":0", 10*time.Millisecond, 10*time.Millisecond)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -123,7 +125,8 @@ func TestStartupShutdown(t *testing.T) {
 }
 
 func TestNonce(t *testing.T) {
-	server, err := Start(makeConfig(t), ":0", 10*time.Millisecond, 10*time.Millisecond)
+	c := makeConfig(t)
+	server, err := Start(c, c.Peers[0], ":0", 10*time.Millisecond, 10*time.Millisecond)
 	if err != nil {
 		t.Fatal(err)
 	}

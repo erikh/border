@@ -13,7 +13,6 @@ import (
 	"github.com/erikh/border/pkg/api"
 	"github.com/erikh/border/pkg/config"
 	"github.com/erikh/border/pkg/controlclient"
-	"github.com/erikh/border/pkg/controlserver"
 	"github.com/erikh/border/pkg/josekit"
 	"github.com/erikh/border/pkg/launcher"
 	"github.com/ghodss/yaml"
@@ -144,7 +143,7 @@ func clientAuthCheck(args []string) error {
 		return fmt.Errorf("Could not load client configuration at %q: %w", *clientConfigFile, err)
 	}
 
-	authCheck := make(api.AuthCheck, controlserver.NonceSize)
+	authCheck := make(api.AuthCheck, api.NonceSize)
 
 	if _, err := client.SendRequest(api.PathAuthCheck, &authCheck); err != nil {
 		return fmt.Errorf("Authentication failed: %w", err)
