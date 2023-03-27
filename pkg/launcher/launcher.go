@@ -273,9 +273,7 @@ func (s *Server) buildHealthChecks(c *config.Config) (*healthcheck.HealthChecker
 		})
 
 		revived := func(hc *healthcheck.HealthCheck) error {
-			peers := s.config.Peers
-			peers = append(peers, peer)
-			s.config.SetPeers(peers)
+			s.config.AddPeer(peer)
 
 			return holdElection(s.peerName, s.config)
 		}

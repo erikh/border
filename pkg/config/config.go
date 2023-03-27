@@ -106,6 +106,12 @@ func (c *Config) SetPeers(peers []*Peer) {
 	c.Peers = peers
 }
 
+func (c *Config) AddPeer(peer *Peer) {
+	EditMutex.Lock()
+	defer EditMutex.Unlock()
+	c.Peers = append(c.Peers, peer)
+}
+
 func (c *Config) SetPublisher(publisher *Peer) {
 	EditMutex.Lock()
 	defer EditMutex.Unlock()
