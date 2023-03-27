@@ -1,6 +1,7 @@
 package election
 
 import (
+	"log"
 	"sync"
 	"time"
 
@@ -42,28 +43,24 @@ func (e *Election) Index() uint {
 	return e.index
 }
 
-func (e *Election) ElectoratePeer() (string, error) {
+func (e *Election) ElectoratePeer() string {
 	if e.electoratePeer == "" {
-		if err := e.getElectorate(); err != nil {
-			return "", err
-		}
+		e.getElectorate()
 	}
 
-	return e.electoratePeer, nil
+	return e.electoratePeer
 }
 
 func (e *Election) RegisterVote(me, chosen *config.Peer) {
 	e.voter.RegisterVote(me, chosen)
 }
 
-func (e *Election) getElectorate() error {
+func (e *Election) getElectorate() {
 	if e.electoratePeer != "" {
-		return nil
+		return
 	}
 
-	if err := e.gatherUptimes(); err != nil {
-		return err
-	}
+	e.gatherUptimes()
 
 	e.uptimeMutex.RLock()
 	defer e.uptimeMutex.RUnlock()
@@ -81,8 +78,6 @@ func (e *Election) getElectorate() error {
 	}
 
 	e.electoratePeer = electoratePeer
-
-	return nil
 }
 
 func (e *Election) getUptime(peer *config.Peer) error {
@@ -99,25 +94,21 @@ func (e *Election) getUptime(peer *config.Peer) error {
 	return nil
 }
 
-func (e *Election) gatherUptimes() error {
-	errChan := make(chan error, len(e.config.Peers))
+func (e *Election) gatherUptimes() {
+	wg := &sync.WaitGroup{}
+	wg.Add(len(e.config.Peers))
 
 	for _, peer := range e.config.Peers {
 		go func(e *Election, peer *config.Peer) {
-			errChan <- e.getUptime(peer)
+			if err := e.getUptime(peer); err != nil {
+				log.Printf("Peer %q could not be reached, pruning for now: %v", peer.Name(), err)
+				e.config.RemovePeer(peer)
+			}
+			wg.Done()
 		}(e, peer)
 	}
 
-	for i := 0; i < len(e.config.Peers); i++ {
-		select {
-		case err := <-errChan:
-			if err != nil {
-				return err
-			}
-		}
-	}
-
-	return nil
+	wg.Wait()
 }
 
 func (e *Election) Voter() *Voter {

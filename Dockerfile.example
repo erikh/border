@@ -1,0 +1,13 @@
+FROM golang as build
+
+ARG DIR=/go/src/github.com/erikh/border
+
+COPY . ${DIR}
+WORKDIR ${DIR}
+
+RUN go install -v ./...
+
+FROM debian
+
+COPY --from=build /go/bin/border /bin
+RUN mkdir /etc/border

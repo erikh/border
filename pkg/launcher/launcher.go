@@ -33,12 +33,16 @@ type Server struct {
 func (s *Server) Launch(peerName string, c *config.Config) error {
 	peer, err := c.FindPeer(peerName)
 	if err != nil {
-		return err
+		return fmt.Errorf("Could not find the name of this peer: %q: %w", peerName, err)
 	}
 
 	cs, err := controlserver.Start(c, peer, c.Listen.Control, controlserver.NonceExpiration, 100*time.Millisecond)
 	if err != nil {
-		return err
+		return fmt.Errorf("Error while starting control server: %w", err)
+	}
+
+	if err := holdElection(peerName, c); err != nil {
+		return fmt.Errorf("Error while holding election: %w", err)
 	}
 
 	dnsserver := dnsserver.DNSServer{
@@ -149,11 +153,9 @@ func (s *Server) createBalancers(peerName string, c *config.Config) ([]*lb.Balan
 					}
 				}
 
-				lbRecord.Listeners = newListeners
-
 				// second iteration, work with the IP addresses directly.
 				for _, listener := range lbRecord.Listeners {
-					host, _, err := net.SplitHostPort(listener)
+					host, port, err := net.SplitHostPort(listener)
 					if err != nil {
 						return nil, fmt.Errorf("Invalid listener %q: could not parse: %v", listener, err)
 					}
@@ -173,7 +175,7 @@ func (s *Server) createBalancers(peerName string, c *config.Config) ([]*lb.Balan
 								ConnectionTimeout:        lbRecord.ConnectionTimeout,
 							}
 
-							balancer := lb.Init(listener, bc)
+							balancer := lb.Init(net.JoinHostPort(ip.String(), port), bc)
 							if err := balancer.Start(); err != nil {
 								return nil, fmt.Errorf("Could not start balancer %q: %v", rec.Name, err)
 							}
@@ -187,6 +189,61 @@ func (s *Server) createBalancers(peerName string, c *config.Config) ([]*lb.Balan
 	}
 
 	return balancers, nil
+}
+
+func holdElection(peerName string, c *config.Config) error {
+	var (
+		electoratePeer string
+		index          uint
+	)
+
+	for _, peer := range c.Peers {
+		client := controlclient.FromPeer(peer)
+		resp, err := client.Exchange(&api.StartElectionRequest{}, true)
+		if err != nil {
+			log.Printf("Error while attempting to start election with %q: %v", peer.Name(), err)
+			c.RemovePeer(peer)
+			continue
+		}
+
+		if electoratePeer == "" {
+			electoratePeer = resp.(*api.StartElectionResponse).ElectoratePeer
+		}
+		idx := resp.(*api.StartElectionResponse).Index
+		if idx > index {
+			electoratePeer = resp.(*api.StartElectionResponse).ElectoratePeer
+			index = idx
+		}
+	}
+
+	electorate, err := c.FindPeer(electoratePeer)
+	if err != nil {
+		return fmt.Errorf("%q could not determine electorate: %w", peerName, err)
+	}
+
+	electorateClient := controlclient.FromPeer(electorate)
+	_, err = electorateClient.Exchange(&api.ElectionVoteRequest{Index: index, Me: peerName, Peer: electoratePeer}, true)
+	if err != nil {
+		return fmt.Errorf("%q could not vote: %w", peerName, err)
+	}
+
+	resp, err := electorateClient.Exchange(&api.IdentifyPublisherRequest{}, true)
+	if err != nil {
+		return fmt.Errorf("%q could not identify publisher: %w", peerName, err)
+	}
+
+	if index == resp.(*api.IdentifyPublisherResponse).EstablishedIndex {
+		publisher, err := c.FindPeer(resp.(*api.IdentifyPublisherResponse).Publisher)
+		if err != nil {
+			return fmt.Errorf("Could not find elected peer %q: %w", resp.(*api.IdentifyPublisherResponse).Publisher, err)
+		}
+
+		c.SetPublisher(publisher)
+	} else {
+		return errors.New("Index drift after election")
+	}
+
+	return nil
 }
 
 func (s *Server) buildHealthChecks(c *config.Config) (*healthcheck.HealthChecker, error) {
@@ -210,70 +267,17 @@ func (s *Server) buildHealthChecks(c *config.Config) (*healthcheck.HealthChecker
 			if err != nil {
 				log.Printf("While preparing HTTP ping monitor for peer %q: %v", peer.Name(), err)
 			}
+			r.Method = http.MethodPut
 			r.Body = io.NopCloser(bytes.NewBuffer(out))
 			return r
 		})
-
-		elect := func() error {
-			var (
-				electoratePeer string
-				index          uint
-			)
-
-			for _, peer := range s.config.Peers {
-				client := controlclient.FromPeer(peer)
-				resp, err := client.Exchange(&api.StartElectionRequest{}, true)
-				if err != nil {
-					return err
-				}
-
-				if electoratePeer == "" {
-					electoratePeer = resp.(*api.StartElectionResponse).ElectoratePeer
-				}
-				idx := resp.(*api.StartElectionResponse).Index
-				if idx > index {
-					electoratePeer = resp.(*api.StartElectionResponse).ElectoratePeer
-					index = idx
-				}
-
-			}
-
-			electorate, err := s.config.FindPeer(electoratePeer)
-			if err != nil {
-				return err
-			}
-
-			electorateClient := controlclient.FromPeer(electorate)
-			_, err = electorateClient.Exchange(&api.ElectionVoteRequest{Index: index, Me: peer.Name(), Peer: electoratePeer}, true)
-			if err != nil {
-				return err
-			}
-
-			resp, err := electorateClient.Exchange(&api.IdentifyPublisherRequest{}, true)
-			if err != nil {
-				return err
-			}
-
-			if index == resp.(*api.IdentifyPublisherResponse).EstablishedIndex {
-				publisher, err := s.config.FindPeer(resp.(*api.IdentifyPublisherResponse).Publisher)
-				if err != nil {
-					return fmt.Errorf("Could not find elected peer %q: %w", resp.(*api.IdentifyPublisherResponse).Publisher, err)
-				}
-
-				s.config.SetPublisher(publisher)
-			} else {
-				return errors.New("Index drift after election")
-			}
-
-			return nil
-		}
 
 		revived := func(hc *healthcheck.HealthCheck) error {
 			peers := s.config.Peers
 			peers = append(peers, peer)
 			s.config.SetPeers(peers)
 
-			return elect()
+			return holdElection(s.peerName, s.config)
 		}
 
 		failed := func(hc *healthcheck.HealthCheck) error {
@@ -287,7 +291,7 @@ func (s *Server) buildHealthChecks(c *config.Config) (*healthcheck.HealthChecker
 			s.config.SetPeers(peers)
 
 			if hc.Target() == s.config.Publisher.Name() {
-				if err := elect(); err != nil {
+				if err := holdElection(s.peerName, s.config); err != nil {
 					return err
 				}
 			}
@@ -398,40 +402,47 @@ func (s *Server) buildHealthChecks(c *config.Config) (*healthcheck.HealthChecker
 							return nil, fmt.Errorf("While computing healthcheck records for load balancer listener %q: %w", listener, err)
 						}
 
-						newCheck := check.Copy()
-
-						if newCheck.Name == "" {
-							newCheck.Name = rec.Name
+						peer, err := s.config.FindPeer(host)
+						if err != nil {
+							return nil, fmt.Errorf("Could not locate IPs for peer %q: %w", peer.Name(), err)
 						}
 
-						if newCheck.Type == "" {
-							newCheck.Type = healthcheck.TypePing
-						}
+						for _, ip := range peer.IPs {
+							newCheck := check.Copy()
 
-						newCheck.SetTarget(host)
+							if newCheck.Name == "" {
+								newCheck.Name = rec.Name
+							}
 
-						checks = append(checks, &healthcheck.HealthCheckAction{
-							Check: newCheck,
-							FailedAction: func(check *healthcheck.HealthCheck) error {
-								log.Printf("Health Check for %q (name: %q) failed: pruning LB backend record", newCheck.Target(), newCheck.Name)
-								listeners := []string{}
+							if newCheck.Type == "" {
+								newCheck.Type = healthcheck.TypePing
+							}
 
-								for _, lis := range lbRecord.Listeners {
-									if lis != listener {
-										listeners = append(listeners, lis)
+							newCheck.SetTarget(ip.String())
+
+							checks = append(checks, &healthcheck.HealthCheckAction{
+								Check: newCheck,
+								FailedAction: func(check *healthcheck.HealthCheck) error {
+									log.Printf("Health Check for %q (name: %q) failed: pruning LB backend record", newCheck.Target(), newCheck.Name)
+									listeners := []string{}
+
+									for _, lis := range lbRecord.Listeners {
+										if lis != listener {
+											listeners = append(listeners, lis)
+										}
 									}
-								}
 
-								lbRecord.Listeners = listeners
-								return nil
-							},
-							ReviveAction: func(check *healthcheck.HealthCheck) error {
-								log.Printf("Health Check for %q (name: %q) revived: adjusting LB record", newCheck.Target(), newCheck.Name)
+									lbRecord.Listeners = listeners
+									return nil
+								},
+								ReviveAction: func(check *healthcheck.HealthCheck) error {
+									log.Printf("Health Check for %q (name: %q) revived: adjusting LB record", newCheck.Target(), newCheck.Name)
 
-								lbRecord.Listeners = append(lbRecord.Listeners, listener)
-								return nil
-							},
-						})
+									lbRecord.Listeners = append(lbRecord.Listeners, listener)
+									return nil
+								},
+							})
+						}
 					}
 				}
 			}

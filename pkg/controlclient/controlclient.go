@@ -132,13 +132,13 @@ func (c *Client) PrepareRequest(msg api.Request, peer bool) ([]byte, error) {
 	return []byte(out), nil
 }
 
-func (c *Client) SendRequest(endpoint string, msg api.Request, peer bool) (*http.Response, error) {
+func (c *Client) SendRequest(msg api.Request, peer bool) (*http.Response, error) {
 	baseurl, err := url.Parse(c.BaseURL)
 	if err != nil {
 		return nil, fmt.Errorf("Base URL %q is invalid: %w", c.BaseURL, err)
 	}
 
-	u := baseurl.JoinPath("/" + endpoint)
+	u := baseurl.JoinPath("/" + msg.Endpoint())
 
 	out, err := c.PrepareRequest(msg, peer)
 	if err != nil {
@@ -150,7 +150,7 @@ func (c *Client) SendRequest(endpoint string, msg api.Request, peer bool) (*http
 		return nil, err
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
 	resp, err := http.DefaultClient.Do(req.WithContext(ctx))
@@ -171,7 +171,7 @@ func (c *Client) SendRequest(endpoint string, msg api.Request, peer bool) (*http
 }
 
 func (c *Client) Exchange(msg api.Request, peer bool) (api.Message, error) {
-	resp, err := c.SendRequest(msg.Endpoint(), msg, peer)
+	resp, err := c.SendRequest(msg, peer)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to deliver request: %w", err)
 	}

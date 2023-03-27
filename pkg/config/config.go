@@ -18,14 +18,14 @@ var (
 )
 
 var FileMutex sync.RWMutex
-var EditMutex sync.Mutex
+var EditMutex sync.RWMutex
 
 type Config struct {
 	FilenamePrefix string           `json:"-"` // prefix of filename to save to and read from
+	Publisher      *Peer            `json:"-"`
 	ShutdownWait   time.Duration    `json:"shutdown_wait"`
 	AuthKey        *jose.JSONWebKey `json:"auth_key"`
 	Listen         ListenConfig     `json:"listen"`
-	Publisher      *Peer            `json:"publisher"`
 	Peers          []*Peer          `json:"peers"`
 	Zones          map[string]*Zone `json:"zones"`
 
@@ -84,6 +84,20 @@ func (c *Config) FindPeer(name string) (*Peer, error) {
 	}
 
 	return nil, ErrPeerNotFound
+}
+
+func (c *Config) RemovePeer(peer *Peer) {
+	peers := []*Peer{}
+	EditMutex.RLock()
+
+	for _, origPeer := range c.Peers {
+		if peer.Name() != origPeer.Name() {
+			peers = append(peers, origPeer)
+		}
+	}
+
+	EditMutex.RUnlock()
+	c.SetPeers(peers)
 }
 
 func (c *Config) SetPeers(peers []*Peer) {

@@ -25,7 +25,16 @@ peers:
     ips:
       - ::1
       - 127.0.0.1
-    control_server: 127.0.0.1:5309
+    control_server: border1:5309
+  - key:
+      alg: A256KW
+      k: wD00d-xeHM4flVhT9Y4mxgnu2hP4mAjMrUrmj353dEg
+      kid: bar
+      kty: oct
+    ips:
+      - ::1
+      - 127.0.0.1
+    control_server: border2:5309
 # DNS zones. Note, the records coordinate to all services border provides.
 zones:
   test.home.arpa:
@@ -55,7 +64,7 @@ zones:
         name: broken.test.home.arpa
         value:
           addresses:
-            - 11.1.0.1
+            - 172.16.3.1
           healthcheck:
             - timeout: 1s
               failures: 3

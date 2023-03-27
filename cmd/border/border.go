@@ -28,7 +28,6 @@ var (
 	keyGenerateFlagSet = flag.NewFlagSet("border keygenerate", flag.ExitOnError)
 	configFile         = appFlagSet.String("c", "/etc/border/config.yaml", "configuration file path")
 	clientConfigFile   = appFlagSet.String("client", "/etc/border/client.yaml", "client configuration file path")
-	keyID              = keyGenerateFlagSet.String("id", "control", "key ID (kid) of JSON Web Key")
 )
 
 func main() {
@@ -77,7 +76,7 @@ func main() {
 			},
 			{
 				Name:      "keygenerate",
-				Usage:     "border keygenerate",
+				Usage:     "border keygenerate <name>",
 				ShortHelp: "Generate a new authentication key for use in border",
 				FlagSet:   keyGenerateFlagSet,
 				Exec:      keyGenerate,
@@ -145,7 +144,7 @@ func clientAuthCheck(args []string) error {
 
 	authCheck := make(api.AuthCheck, api.NonceSize)
 
-	if _, err := client.SendRequest(api.PathAuthCheck, &authCheck, false); err != nil {
+	if _, err := client.SendRequest(&authCheck, false); err != nil {
 		return fmt.Errorf("Authentication failed: %w", err)
 	}
 
@@ -240,7 +239,11 @@ func clientUpdateConfig(args []string) error {
 }
 
 func keyGenerate(args []string) error {
-	key, err := josekit.MakeKey(*keyID)
+	if len(args) != 1 {
+		return errors.New("Please provide a key id as an argument")
+	}
+
+	key, err := josekit.MakeKey(args[0])
 	if err != nil {
 		return err
 	}

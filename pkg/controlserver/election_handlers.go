@@ -2,7 +2,6 @@ package controlserver
 
 import (
 	"errors"
-	"fmt"
 	"time"
 
 	"github.com/erikh/border/pkg/api"
@@ -36,10 +35,7 @@ func (s *Server) handleStartElection(req api.Request) (api.Message, error) {
 		BootTime: s.bootTime,
 	})
 
-	electoratePeer, err := s.election.ElectoratePeer()
-	if err != nil {
-		return nil, fmt.Errorf("Error determining electorate peer: %w", err)
-	}
+	electoratePeer := s.election.ElectoratePeer()
 
 	s.electoratePeer = electoratePeer
 	resp.ElectoratePeer = electoratePeer
