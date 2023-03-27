@@ -141,11 +141,6 @@ func (s *Server) handle(method string, req api.Request, key *jose.JSONWebKey, f 
 
 		switch method {
 		case http.MethodPut:
-			if code, err := s.handleValidateNonce(r, req, key); err != nil {
-				http.Error(w, fmt.Sprintf("Nonce validation failed: %v", err), code)
-				return
-			}
-
 			if s.debugPayload {
 				m, err := req.Marshal()
 				if err != nil {
@@ -153,6 +148,11 @@ func (s *Server) handle(method string, req api.Request, key *jose.JSONWebKey, f 
 					return
 				}
 				log.Printf("Payload %q", string(m))
+			}
+
+			if code, err := s.handleValidateNonce(r, req, key); err != nil {
+				http.Error(w, fmt.Sprintf("Nonce validation failed: %v", err), code)
+				return
 			}
 		}
 
@@ -189,6 +189,7 @@ func (s *Server) configureMux() *http.ServeMux {
 	s.makeHandlerFunc(mux, http.MethodPut, &api.ElectionVoteRequest{}, s.me.Key, s.handleElectionVote)
 	s.makeHandlerFunc(mux, http.MethodPut, &api.IdentifyPublisherRequest{}, s.me.Key, s.handleIdentifyPublisher)
 	s.makeHandlerFunc(mux, http.MethodPut, &api.PingRequest{}, s.me.Key, s.handlePing)
+	s.makeHandlerFunc(mux, http.MethodPut, &api.RequestVoteRequest{}, s.me.Key, s.handleRequestVote)
 
 	return mux
 }

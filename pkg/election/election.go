@@ -71,7 +71,7 @@ func (e *Election) getElectorate() {
 	)
 
 	for choice, uptime := range e.uptimes {
-		if electoratePeer == "" || electorateUptime > uptime {
+		if electoratePeer == "" || electorateUptime < uptime {
 			electoratePeer = choice
 			electorateUptime = uptime
 		}

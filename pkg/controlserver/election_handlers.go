@@ -5,11 +5,13 @@ import (
 	"time"
 
 	"github.com/erikh/border/pkg/api"
+	"github.com/erikh/border/pkg/controlclient"
 	"github.com/erikh/border/pkg/election"
 )
 
 var (
 	ErrElectionIncomplete = errors.New("Election has not completed")
+	ErrAllVotesCast       = errors.New("All votes have been cast")
 )
 
 func (s *Server) handleUptime(req api.Request) (api.Message, error) {
@@ -23,10 +25,6 @@ func (s *Server) handleStartElection(req api.Request) (api.Message, error) {
 
 	s.electionMutex.Lock()
 	defer s.electionMutex.Unlock()
-
-	if s.election != nil && s.election.Index() == s.lastVoteIndex && !s.election.Voter().ReadyToVote() {
-		return nil, ErrElectionIncomplete
-	}
 
 	s.election = election.NewElection(election.ElectionContext{
 		Config:   s.config,
@@ -45,6 +43,28 @@ func (s *Server) handleStartElection(req api.Request) (api.Message, error) {
 	return resp, nil
 }
 
+func (s *Server) handleRequestVote(req api.Request) (api.Message, error) {
+	rvr := req.(*api.RequestVoteRequest)
+
+	peer, err := s.config.FindPeer(rvr.ElectoratePeer)
+	if err != nil {
+		return nil, err
+	}
+
+	// create a temporary election to determine a peer to elect
+	election := election.NewElection(election.ElectionContext{
+		Config:   s.config,
+		Me:       s.me,
+		Index:    s.lastVoteIndex + 1,
+		BootTime: s.bootTime,
+	})
+
+	client := controlclient.FromPeer(peer)
+	_, err = client.Exchange(&api.ElectionVoteRequest{Me: s.me.Name(), Peer: election.ElectoratePeer()}, true)
+
+	return req.Response(), err
+}
+
 func (s *Server) handleElectionVote(req api.Request) (api.Message, error) {
 	evr := req.(*api.ElectionVoteRequest)
 
@@ -53,10 +73,6 @@ func (s *Server) handleElectionVote(req api.Request) (api.Message, error) {
 
 	if s.election == nil || (s.election != nil && s.election.Index() != evr.Index) || s.electoratePeer != s.me.Name() {
 		return nil, errors.New("Vote indexes did not match, or electorate was not this instance; is this peer the right electorate?")
-	}
-
-	if s.election.Voter().ReadyToVote() {
-		return nil, errors.New("All votes have been cast")
 	}
 
 	me, err := s.config.FindPeer(evr.Me)
@@ -78,11 +94,15 @@ func (s *Server) handleIdentifyPublisher(req api.Request) (api.Message, error) {
 	defer s.electionMutex.Unlock()
 
 	if s.election == nil {
-		resp := req.Response().(*api.IdentifyPublisherResponse)
-		resp.EstablishedIndex = s.lastVoteIndex
-		resp.Publisher = s.config.Publisher.Name()
+		if s.config.Publisher != nil && s.lastVoteIndex > 0 {
+			resp := req.Response().(*api.IdentifyPublisherResponse)
+			resp.EstablishedIndex = s.lastVoteIndex
+			resp.Publisher = s.config.Publisher.Name()
 
-		return resp, nil
+			return resp, nil
+		} else {
+			return nil, errors.New("Election was not completed here")
+		}
 	}
 
 	if !s.election.Voter().ReadyToVote() {
@@ -97,6 +117,12 @@ func (s *Server) handleIdentifyPublisher(req api.Request) (api.Message, error) {
 	resp := req.Response().(*api.IdentifyPublisherResponse)
 	resp.EstablishedIndex = s.election.Index()
 	resp.Publisher = vote.Name()
+
+	s.electoratePeer = s.me.Name()
+	s.config.SetPublisher(vote)
+	s.lastVoteIndex = s.election.Index()
+
+	s.election = nil
 
 	return resp, nil
 }

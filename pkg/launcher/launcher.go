@@ -3,7 +3,6 @@ package launcher
 import (
 	"bytes"
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -41,10 +40,6 @@ func (s *Server) Launch(peerName string, c *config.Config) error {
 		return fmt.Errorf("Error while starting control server: %w", err)
 	}
 
-	if err := holdElection(peerName, c); err != nil {
-		return fmt.Errorf("Error while holding election: %w", err)
-	}
-
 	dnsserver := dnsserver.DNSServer{
 		Zones: c.Zones,
 	}
@@ -73,6 +68,11 @@ func (s *Server) Launch(peerName string, c *config.Config) error {
 	s.healthChecker.Start()
 
 	go s.monitorReload()
+
+	// this should be the last thing that runs!
+	if err := holdElection(peerName, c); err != nil {
+		return fmt.Errorf("Error while holding election: %w", err)
+	}
 
 	return nil
 }
@@ -192,6 +192,7 @@ func (s *Server) createBalancers(peerName string, c *config.Config) ([]*lb.Balan
 }
 
 func holdElection(peerName string, c *config.Config) error {
+retry:
 	var (
 		electoratePeer string
 		index          uint
@@ -202,8 +203,8 @@ func holdElection(peerName string, c *config.Config) error {
 		resp, err := client.Exchange(&api.StartElectionRequest{}, true)
 		if err != nil {
 			log.Printf("Error while attempting to start election with %q: %v", peer.Name(), err)
-			c.RemovePeer(peer)
-			continue
+			time.Sleep(time.Second)
+			goto retry
 		}
 
 		if electoratePeer == "" {
@@ -216,34 +217,48 @@ func holdElection(peerName string, c *config.Config) error {
 		}
 	}
 
+	if electoratePeer == "" {
+		log.Println("Received no electorate peer, retrying")
+		time.Sleep(time.Second)
+		goto retry
+	}
+
 	electorate, err := c.FindPeer(electoratePeer)
 	if err != nil {
-		return fmt.Errorf("%q could not determine electorate: %w", peerName, err)
+		log.Printf("%q could not determine electorate (%q): %v", peerName, electoratePeer, err)
+		time.Sleep(time.Second)
+		goto retry
 	}
 
 	electorateClient := controlclient.FromPeer(electorate)
+
 	_, err = electorateClient.Exchange(&api.ElectionVoteRequest{Index: index, Me: peerName, Peer: electoratePeer}, true)
 	if err != nil {
-		return fmt.Errorf("%q could not vote: %w", peerName, err)
+		log.Printf("%q could not vote with electorate %q: %v", peerName, electoratePeer, err)
+		time.Sleep(time.Second)
+		goto retry
 	}
 
 	resp, err := electorateClient.Exchange(&api.IdentifyPublisherRequest{}, true)
 	if err != nil {
-		return fmt.Errorf("%q could not identify publisher: %w", peerName, err)
+		log.Printf("%q could not identify publisher from peer %q: %v: trying again", peerName, electoratePeer, err)
+		time.Sleep(time.Second)
+		goto retry
 	}
 
 	if index == resp.(*api.IdentifyPublisherResponse).EstablishedIndex {
 		publisher, err := c.FindPeer(resp.(*api.IdentifyPublisherResponse).Publisher)
 		if err != nil {
-			return fmt.Errorf("Could not find elected peer %q: %w", resp.(*api.IdentifyPublisherResponse).Publisher, err)
+			return fmt.Errorf("Could not find elected peer %q (is your config correct?): %w", resp.(*api.IdentifyPublisherResponse).Publisher, err)
 		}
 
 		c.SetPublisher(publisher)
+		return nil
 	} else {
-		return errors.New("Index drift after election")
+		log.Println("Index drift after election")
+		time.Sleep(time.Second)
+		goto retry
 	}
-
-	return nil
 }
 
 func (s *Server) buildHealthChecks(c *config.Config) (*healthcheck.HealthChecker, error) {
@@ -260,12 +275,14 @@ func (s *Server) buildHealthChecks(c *config.Config) (*healthcheck.HealthChecker
 		}
 
 		check.SetTarget(fmt.Sprintf("http://%s/%s", peer.ControlServer, api.PathPing))
+		client := controlclient.FromPeer(peer)
+		innerPeer := peer // golang, for loops shouldn't work that way
+
 		check.SetRequestTransformer(func(req interface{}) interface{} {
 			r := req.(*http.Request)
-			client := controlclient.FromPeer(peer)
 			out, err := client.PrepareRequest(&api.PingRequest{}, true)
 			if err != nil {
-				log.Printf("While preparing HTTP ping monitor for peer %q: %v", peer.Name(), err)
+				log.Printf("While preparing HTTP ping monitor for peer %q: %v", innerPeer.Name(), err)
 			}
 			r.Method = http.MethodPut
 			r.Body = io.NopCloser(bytes.NewBuffer(out))
@@ -273,22 +290,15 @@ func (s *Server) buildHealthChecks(c *config.Config) (*healthcheck.HealthChecker
 		})
 
 		revived := func(hc *healthcheck.HealthCheck) error {
-			s.config.AddPeer(peer)
+			s.config.AddPeer(innerPeer)
 
 			return holdElection(s.peerName, s.config)
 		}
 
 		failed := func(hc *healthcheck.HealthCheck) error {
-			peers := []*config.Peer{}
-			for _, origPeer := range s.config.Peers {
-				if peer.Name() != origPeer.Name() {
-					peers = append(peers, origPeer)
-				}
-			}
+			s.config.RemovePeer(innerPeer)
 
-			s.config.SetPeers(peers)
-
-			if hc.Target() == s.config.Publisher.Name() {
+			if s.config.Publisher == nil || hc.Target() == s.config.Publisher.Name() {
 				if err := holdElection(s.peerName, s.config); err != nil {
 					return err
 				}

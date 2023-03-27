@@ -22,6 +22,7 @@ const (
 	PathElectionVote      = "electionVote"
 	PathIdentifyPublisher = "identifyPublisher"
 	PathPing              = "ping"
+	PathRequestVote       = "requestVote"
 )
 
 const (
@@ -474,4 +475,38 @@ func (pr *PingRequest) SetNonce(nonce []byte) error {
 
 func (pr *PingRequest) Marshal() ([]byte, error) {
 	return json.Marshal(pr)
+}
+
+type RequestVoteRequest struct {
+	NonceValue     []byte `json:"nonce"`
+	ElectoratePeer string `json:"electorate_peer"`
+}
+
+func (*RequestVoteRequest) New() Request {
+	return &RequestVoteRequest{}
+}
+
+func (*RequestVoteRequest) Response() Message {
+	return &NilResponse{}
+}
+
+func (*RequestVoteRequest) Endpoint() string {
+	return PathRequestVote
+}
+
+func (rvr *RequestVoteRequest) Unmarshal(byt []byte) error {
+	return json.Unmarshal(byt, rvr)
+}
+
+func (rvr *RequestVoteRequest) Nonce() string {
+	return string(rvr.NonceValue)
+}
+
+func (rvr *RequestVoteRequest) SetNonce(nonce []byte) error {
+	rvr.NonceValue = nonce
+	return nil
+}
+
+func (rvr *RequestVoteRequest) Marshal() ([]byte, error) {
+	return json.Marshal(rvr)
 }

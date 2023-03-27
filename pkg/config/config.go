@@ -76,7 +76,9 @@ func (c *Config) Reload() error {
 }
 
 func (c *Config) FindPeer(name string) (*Peer, error) {
-	// FIXME should take a mutex
+	EditMutex.RLock()
+	defer EditMutex.RUnlock()
+
 	for _, peer := range c.Peers {
 		if peer.Name() == name {
 			return peer, nil

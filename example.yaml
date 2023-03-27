@@ -23,7 +23,7 @@ peers:
       kid: foo
       kty: oct
     ips:
-      - ::1
+      #- ::1
       - 127.0.0.1
     control_server: border1:5309
   - key:
@@ -32,7 +32,7 @@ peers:
       kid: bar
       kty: oct
     ips:
-      - ::1
+      #- ::1
       - 127.0.0.1
     control_server: border2:5309
 # DNS zones. Note, the records coordinate to all services border provides.
