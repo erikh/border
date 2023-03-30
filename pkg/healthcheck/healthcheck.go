@@ -126,16 +126,23 @@ func (hcr *HealthChecker) runChecks() {
 		go func(check *HealthCheckAction, i int) {
 			if err := check.runCheck(); err != nil {
 				log.Print(err)
+
+				var failed bool
+
 				hcr.mutex.Lock()
 				hcr.Failures[i]++
 				if hcr.Failures[i] >= hcr.HealthChecks[i].Check.Failures && !hcr.HealthChecks[i].Check.failed {
+					failed = true
+				}
+				hcr.mutex.Unlock()
+
+				if failed {
 					if err := hcr.HealthChecks[i].FailedAction(hcr.HealthChecks[i].Check); err != nil {
 						log.Printf("Triggered action on failed health check for %q also failed: %v", hcr.HealthChecks[i].Check.Name, err)
 					}
 
 					hcr.HealthChecks[i].Check.failed = true
 				}
-				hcr.mutex.Unlock()
 			} else {
 				hcr.mutex.RLock()
 				if hcr.Failures[i] > 0 {
