@@ -179,6 +179,7 @@ func (s *Server) holdElection() error {
 		return err
 	}
 
+	log.Printf("Electing %q as new leader", peer.Name())
 	s.config.SetPublisher(peer)
 	return nil
 }
@@ -213,20 +214,12 @@ func (s *Server) buildHealthChecks(c *config.Config) (*healthcheck.HealthChecker
 
 		revived := func(hc *healthcheck.HealthCheck) error {
 			s.config.AddPeer(innerPeer)
-
 			return s.holdElection()
 		}
 
 		failed := func(hc *healthcheck.HealthCheck) error {
 			s.config.RemovePeer(innerPeer)
-
-			if s.config.Publisher == nil || hc.Target() == s.config.Publisher.Name() {
-				if err := s.holdElection(); err != nil {
-					return err
-				}
-			}
-
-			return nil
+			return s.holdElection()
 		}
 
 		checks = append(checks, &healthcheck.HealthCheckAction{
