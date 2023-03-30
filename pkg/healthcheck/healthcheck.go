@@ -3,11 +3,9 @@ package healthcheck
 import (
 	"context"
 	"fmt"
-	"io"
 	"log"
 	"net"
 	"net/http"
-	"os"
 	"sync"
 	"time"
 
@@ -99,7 +97,6 @@ func (hc *HealthCheckAction) runCheck() error {
 		}
 
 		if resp.StatusCode != http.StatusOK {
-			io.Copy(os.Stdout, resp.Body)
 			return fmt.Errorf("Status was not OK (was: %d) on HTTP healthcheck %q for target %q", resp.StatusCode, hc.Check.Name, hc.Check.target)
 		}
 	default:

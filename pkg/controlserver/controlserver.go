@@ -14,7 +14,6 @@ import (
 
 	"github.com/erikh/border/pkg/api"
 	"github.com/erikh/border/pkg/config"
-	"github.com/erikh/border/pkg/election"
 	"github.com/go-jose/go-jose/v3"
 )
 
@@ -29,11 +28,8 @@ type Server struct {
 	listener net.Listener
 	config   *config.Config
 
-	me             *config.Peer
-	bootTime       time.Time
-	election       *election.Election
-	electoratePeer string
-	lastVoteIndex  uint
+	me       *config.Peer
+	bootTime time.Time
 
 	debugLog     bool
 	debugPayload bool
@@ -41,10 +37,9 @@ type Server struct {
 	nonces map[string]time.Time
 	// for testing performance; this just comes from a constant normally, but to
 	// wait in tests for a long time seems like a waste of everyone's time
-	expireTime    time.Duration
-	nonceMutex    sync.RWMutex
-	configMutex   sync.RWMutex
-	electionMutex sync.Mutex
+	expireTime  time.Duration
+	nonceMutex  sync.RWMutex
+	configMutex sync.RWMutex
 
 	cancelSupervision context.CancelFunc
 }
@@ -185,11 +180,7 @@ func (s *Server) configureMux() *http.ServeMux {
 	// peer to peer client methods
 	s.makeHandlerFunc(mux, http.MethodGet, &api.PeerNonceRequest{}, s.me.Key, s.handleNonce)
 	s.makeHandlerFunc(mux, http.MethodPut, &api.UptimeRequest{}, s.me.Key, s.handleUptime)
-	s.makeHandlerFunc(mux, http.MethodPut, &api.StartElectionRequest{}, s.me.Key, s.handleStartElection)
-	s.makeHandlerFunc(mux, http.MethodPut, &api.ElectionVoteRequest{}, s.me.Key, s.handleElectionVote)
-	s.makeHandlerFunc(mux, http.MethodPut, &api.IdentifyPublisherRequest{}, s.me.Key, s.handleIdentifyPublisher)
 	s.makeHandlerFunc(mux, http.MethodPut, &api.PingRequest{}, s.me.Key, s.handlePing)
-	s.makeHandlerFunc(mux, http.MethodPut, &api.RequestVoteRequest{}, s.me.Key, s.handleRequestVote)
 
 	return mux
 }

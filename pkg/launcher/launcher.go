@@ -133,26 +133,6 @@ func (s *Server) createBalancers(peerName string, c *config.Config) ([]*lb.Balan
 					return nil, fmt.Errorf("LB record for %q was not parsed correctly", rec.Name)
 				}
 
-				// normalize the listeners to IP:port. Expand the listeners if necessary.
-				newListeners := []string{}
-				for _, listener := range lbRecord.Listeners {
-					host, port, err := net.SplitHostPort(listener)
-					if err != nil {
-						return nil, fmt.Errorf("Invalid listener %q (is it listed as a peer?): could not parse: %v", listener, err)
-					}
-
-					peer, err := c.FindPeer(host)
-					if err != nil {
-						return nil, fmt.Errorf("Host %q is not a peer: %w", host, err)
-					}
-
-					// overwrite the listener peer record with the IP:port internally,
-					// this will probably bite me later but is a good solution for now.
-					for _, ip := range peer.IPs {
-						newListeners = append(newListeners, net.JoinHostPort(ip.String(), port))
-					}
-				}
-
 				// second iteration, work with the IP addresses directly.
 				for _, listener := range lbRecord.Listeners {
 					host, port, err := net.SplitHostPort(listener)
