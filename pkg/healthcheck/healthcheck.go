@@ -28,6 +28,7 @@ type HealthCheck struct {
 	// for Ping, this is not used.
 	requestTransformer func(interface{}) interface{}
 	target             string
+	failed             bool
 }
 
 // Copies the health check without duplicating the target.
@@ -127,6 +128,13 @@ func (hcr *HealthChecker) runChecks() {
 				log.Print(err)
 				hcr.mutex.Lock()
 				hcr.Failures[i]++
+				if hcr.Failures[i] >= hcr.HealthChecks[i].Check.Failures && !hcr.HealthChecks[i].Check.failed {
+					if err := hcr.HealthChecks[i].FailedAction(hcr.HealthChecks[i].Check); err != nil {
+						log.Printf("Triggered action on failed health check for %q also failed: %v", hcr.HealthChecks[i].Check.Name, err)
+					}
+
+					hcr.HealthChecks[i].Check.failed = true
+				}
 				hcr.mutex.Unlock()
 			} else {
 				hcr.mutex.RLock()
@@ -136,12 +144,14 @@ func (hcr *HealthChecker) runChecks() {
 					if err := check.ReviveAction(check.Check); err != nil {
 						log.Printf("Error while reviving record %q (name: %q): %v", check.Check.Target(), check.Check.Name, err)
 					}
+
 				}
 				hcr.mutex.RUnlock()
 
 				hcr.mutex.Lock()
 				// should have some back-off code here to detect flapping things
 				hcr.Failures[i] = 0
+				hcr.HealthChecks[i].Check.failed = false
 				hcr.mutex.Unlock()
 			}
 			finished.Done()
@@ -173,15 +183,5 @@ func (hcr *HealthChecker) run(ctx context.Context) {
 		}
 
 		hcr.runChecks()
-
-		hcr.mutex.RLock()
-		for i, failures := range hcr.Failures {
-			if failures >= hcr.HealthChecks[i].Check.Failures {
-				if err := hcr.HealthChecks[i].FailedAction(hcr.HealthChecks[i].Check); err != nil {
-					log.Printf("Triggered action on failed health check for %q also failed: %v", hcr.HealthChecks[i].Check.Name, err)
-				}
-			}
-		}
-		hcr.mutex.RUnlock()
 	}
 }
