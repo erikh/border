@@ -11,73 +11,37 @@ import (
 )
 
 type Election struct {
-	config         *config.Config
-	me             *config.Peer
-	voter          *Voter
-	uptimes        map[string]time.Duration
-	index          uint
-	bootTime       time.Time
-	electoratePeer string
-	uptimeMutex    sync.RWMutex
+	config      *config.Config
+	uptimes     map[string]time.Duration
+	uptimeMutex sync.RWMutex
 }
 
-type ElectionContext struct {
-	Config   *config.Config
-	Me       *config.Peer
-	Index    uint
-	BootTime time.Time
-}
-
-func NewElection(ec ElectionContext) *Election {
+func NewElection(c *config.Config) *Election {
 	return &Election{
-		config:   ec.Config,
-		me:       ec.Me,
-		voter:    NewVoter(ec.Config, ec.Index),
-		uptimes:  map[string]time.Duration{},
-		index:    ec.Index,
-		bootTime: ec.BootTime,
+		config:  c,
+		uptimes: map[string]time.Duration{},
 	}
 }
 
-func (e *Election) Index() uint {
-	return e.index
-}
-
-func (e *Election) ElectoratePeer() string {
-	if e.electoratePeer == "" {
-		e.getElectorate()
-	}
-
-	return e.electoratePeer
-}
-
-func (e *Election) RegisterVote(me, chosen *config.Peer) {
-	e.voter.RegisterVote(me, chosen)
-}
-
-func (e *Election) getElectorate() {
-	if e.electoratePeer != "" {
-		return
-	}
-
+func (e *Election) Vote() (*config.Peer, error) {
 	e.gatherUptimes()
 
 	e.uptimeMutex.RLock()
 	defer e.uptimeMutex.RUnlock()
 
 	var (
-		electoratePeer   string
-		electorateUptime time.Duration
+		oldestPeer   string
+		oldestUptime time.Duration
 	)
 
-	for choice, uptime := range e.uptimes {
-		if electoratePeer == "" || electorateUptime < uptime {
-			electoratePeer = choice
-			electorateUptime = uptime
+	for peerName, uptime := range e.uptimes {
+		if uptime > oldestUptime {
+			oldestPeer = peerName
+			oldestUptime = uptime
 		}
 	}
 
-	e.electoratePeer = electoratePeer
+	return e.config.FindPeer(oldestPeer)
 }
 
 func (e *Election) getUptime(peer *config.Peer) error {
@@ -109,8 +73,4 @@ func (e *Election) gatherUptimes() {
 	}
 
 	wg.Wait()
-}
-
-func (e *Election) Voter() *Voter {
-	return e.voter
 }

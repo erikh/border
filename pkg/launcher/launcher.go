@@ -16,6 +16,7 @@ import (
 	"github.com/erikh/border/pkg/controlserver"
 	"github.com/erikh/border/pkg/dnsconfig"
 	"github.com/erikh/border/pkg/dnsserver"
+	"github.com/erikh/border/pkg/election"
 	"github.com/erikh/border/pkg/healthcheck"
 	"github.com/erikh/border/pkg/lb"
 )
@@ -70,7 +71,7 @@ func (s *Server) Launch(peerName string, c *config.Config) error {
 	go s.monitorReload()
 
 	// this should be the last thing that runs!
-	if err := holdElection(peerName, c); err != nil {
+	if err := s.holdElection(); err != nil {
 		return fmt.Errorf("Error while holding election: %w", err)
 	}
 
@@ -171,8 +172,14 @@ func (s *Server) createBalancers(peerName string, c *config.Config) ([]*lb.Balan
 	return balancers, nil
 }
 
-func holdElection(peerName string, c *config.Config) error {
-	// FIXME replace with something that does something useful
+func (s *Server) holdElection() error {
+	e := election.NewElection(s.config)
+	peer, err := e.Vote()
+	if err != nil {
+		return err
+	}
+
+	s.config.SetPublisher(peer)
 	return nil
 }
 
@@ -207,14 +214,14 @@ func (s *Server) buildHealthChecks(c *config.Config) (*healthcheck.HealthChecker
 		revived := func(hc *healthcheck.HealthCheck) error {
 			s.config.AddPeer(innerPeer)
 
-			return holdElection(s.peerName, s.config)
+			return s.holdElection()
 		}
 
 		failed := func(hc *healthcheck.HealthCheck) error {
 			s.config.RemovePeer(innerPeer)
 
 			if s.config.Publisher == nil || hc.Target() == s.config.Publisher.Name() {
-				if err := holdElection(s.peerName, s.config); err != nil {
+				if err := s.holdElection(); err != nil {
 					return err
 				}
 			}
