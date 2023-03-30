@@ -133,7 +133,7 @@ func (s *Server) createBalancers(peerName string, c *config.Config) ([]*lb.Balan
 					return nil, fmt.Errorf("LB record for %q was not parsed correctly", rec.Name)
 				}
 
-				// second iteration, work with the IP addresses directly.
+				// work with the IP addresses directly.
 				for _, listener := range lbRecord.Listeners {
 					host, port, err := net.SplitHostPort(listener)
 					if err != nil {
