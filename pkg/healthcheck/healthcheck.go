@@ -131,9 +131,7 @@ func (hcr *HealthChecker) runChecks() {
 
 				hcr.mutex.Lock()
 				hcr.Failures[i]++
-				if hcr.Failures[i] >= hcr.HealthChecks[i].Check.Failures && !hcr.HealthChecks[i].Check.failed {
-					failed = true
-				}
+				failed = hcr.Failures[i] >= hcr.HealthChecks[i].Check.Failures && !hcr.HealthChecks[i].Check.failed
 				hcr.mutex.Unlock()
 
 				if failed {
@@ -141,7 +139,9 @@ func (hcr *HealthChecker) runChecks() {
 						log.Printf("Triggered action on failed health check for %q also failed: %v", hcr.HealthChecks[i].Check.Name, err)
 					}
 
+					hcr.mutex.Lock()
 					hcr.HealthChecks[i].Check.failed = true
+					hcr.mutex.Unlock()
 				}
 			} else {
 				hcr.mutex.RLock()
