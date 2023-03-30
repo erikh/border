@@ -192,73 +192,8 @@ func (s *Server) createBalancers(peerName string, c *config.Config) ([]*lb.Balan
 }
 
 func holdElection(peerName string, c *config.Config) error {
-retry:
-	var (
-		electoratePeer string
-		index          uint
-	)
-
-	for _, peer := range c.Peers {
-		client := controlclient.FromPeer(peer)
-		resp, err := client.Exchange(&api.StartElectionRequest{}, true)
-		if err != nil {
-			log.Printf("Error while attempting to start election with %q: %v", peer.Name(), err)
-			time.Sleep(time.Second)
-			goto retry
-		}
-
-		if electoratePeer == "" {
-			electoratePeer = resp.(*api.StartElectionResponse).ElectoratePeer
-		}
-		idx := resp.(*api.StartElectionResponse).Index
-		if idx > index {
-			electoratePeer = resp.(*api.StartElectionResponse).ElectoratePeer
-			index = idx
-		}
-	}
-
-	if electoratePeer == "" {
-		log.Println("Received no electorate peer, retrying")
-		time.Sleep(time.Second)
-		goto retry
-	}
-
-	electorate, err := c.FindPeer(electoratePeer)
-	if err != nil {
-		log.Printf("%q could not determine electorate (%q): %v", peerName, electoratePeer, err)
-		time.Sleep(time.Second)
-		goto retry
-	}
-
-	electorateClient := controlclient.FromPeer(electorate)
-
-	_, err = electorateClient.Exchange(&api.ElectionVoteRequest{Index: index, Me: peerName, Peer: electoratePeer}, true)
-	if err != nil {
-		log.Printf("%q could not vote with electorate %q: %v", peerName, electoratePeer, err)
-		time.Sleep(time.Second)
-		goto retry
-	}
-
-	resp, err := electorateClient.Exchange(&api.IdentifyPublisherRequest{}, true)
-	if err != nil {
-		log.Printf("%q could not identify publisher from peer %q: %v: trying again", peerName, electoratePeer, err)
-		time.Sleep(time.Second)
-		goto retry
-	}
-
-	if index == resp.(*api.IdentifyPublisherResponse).EstablishedIndex {
-		publisher, err := c.FindPeer(resp.(*api.IdentifyPublisherResponse).Publisher)
-		if err != nil {
-			return fmt.Errorf("Could not find elected peer %q (is your config correct?): %w", resp.(*api.IdentifyPublisherResponse).Publisher, err)
-		}
-
-		c.SetPublisher(publisher)
-		return nil
-	} else {
-		log.Println("Index drift after election")
-		time.Sleep(time.Second)
-		goto retry
-	}
+	// FIXME replace with something that does something useful
+	return nil
 }
 
 func (s *Server) buildHealthChecks(c *config.Config) (*healthcheck.HealthChecker, error) {
