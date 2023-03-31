@@ -59,3 +59,11 @@ func (s *Server) handleConfigReload(req api.Request) (api.Message, error) {
 
 	return req.Response(), nil
 }
+
+func (s *Server) handleIdentifyPublisher(req api.Request) (api.Message, error) {
+	publisher := s.config.GetPublisher()
+
+	resp := req.Response().(*api.IdentifyPublisherResponse)
+	resp.Publisher = publisher.Name()
+	return resp, nil
+}

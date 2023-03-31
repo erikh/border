@@ -191,7 +191,7 @@ func (*IdentifyPublisherRequest) Response() Message {
 }
 
 func (*IdentifyPublisherRequest) Endpoint() string {
-	return PathConfigReload
+	return PathIdentifyPublisher
 }
 
 func (ipr *IdentifyPublisherRequest) Unmarshal(byt []byte) error {

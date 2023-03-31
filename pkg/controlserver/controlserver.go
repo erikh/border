@@ -176,6 +176,7 @@ func (s *Server) configureMux() *http.ServeMux {
 	s.makeHandlerFunc(mux, http.MethodPut, &api.ConfigUpdateRequest{}, s.config.AuthKey, s.handleConfigUpdate)
 	s.makeHandlerFunc(mux, http.MethodPut, &api.ConfigReloadRequest{}, s.config.AuthKey, s.handleConfigReload)
 	s.makeHandlerFunc(mux, http.MethodPut, &api.PeerRegistrationRequest{}, s.config.AuthKey, s.handlePeerRegister)
+	s.makeHandlerFunc(mux, http.MethodPut, &api.IdentifyPublisherRequest{}, s.config.AuthKey, s.handleIdentifyPublisher)
 
 	// peer to peer client methods
 	s.makeHandlerFunc(mux, http.MethodGet, &api.PeerNonceRequest{}, s.me.Key, s.handleNonce)
