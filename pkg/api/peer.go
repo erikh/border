@@ -49,11 +49,11 @@ func (*UptimeRequest) New() Request {
 	return &UptimeRequest{}
 }
 
-func (ur *UptimeRequest) Response() Message {
+func (*UptimeRequest) Response() Message {
 	return &UptimeResponse{}
 }
 
-func (ur *UptimeRequest) Endpoint() string {
+func (*UptimeRequest) Endpoint() string {
 	return PathUptime
 }
 

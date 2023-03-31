@@ -7,11 +7,12 @@ import (
 )
 
 const (
-	PathNonce            = "nonce"
-	PathAuthCheck        = "authCheck"
-	PathPeerRegistration = "peerRegister"
-	PathConfigUpdate     = "configUpdate"
-	PathConfigReload     = "configReload"
+	PathNonce             = "nonce"
+	PathAuthCheck         = "authCheck"
+	PathPeerRegistration  = "peerRegister"
+	PathConfigUpdate      = "configUpdate"
+	PathConfigReload      = "configReload"
+	PathIdentifyPublisher = "identifyPublisher"
 )
 
 type NonceRequest struct{}
@@ -51,11 +52,11 @@ func (AuthCheck) New() Request {
 	return make(AuthCheck, NonceSize)
 }
 
-func (ac AuthCheck) Response() Message {
+func (AuthCheck) Response() Message {
 	return &NilResponse{}
 }
 
-func (ac AuthCheck) Endpoint() string {
+func (AuthCheck) Endpoint() string {
 	return PathAuthCheck
 }
 
@@ -85,11 +86,11 @@ func (*ConfigUpdateRequest) New() Request {
 	return &ConfigUpdateRequest{}
 }
 
-func (cur *ConfigUpdateRequest) Response() Message {
+func (*ConfigUpdateRequest) Response() Message {
 	return &NilResponse{}
 }
 
-func (cur *ConfigUpdateRequest) Endpoint() string {
+func (*ConfigUpdateRequest) Endpoint() string {
 	return PathConfigUpdate
 }
 
@@ -119,11 +120,11 @@ func (*PeerRegistrationRequest) New() Request {
 	return &PeerRegistrationRequest{}
 }
 
-func (peer *PeerRegistrationRequest) Response() Message {
+func (*PeerRegistrationRequest) Response() Message {
 	return &NilResponse{}
 }
 
-func (peer *PeerRegistrationRequest) Endpoint() string {
+func (*PeerRegistrationRequest) Endpoint() string {
 	return PathPeerRegistration
 }
 
@@ -152,11 +153,11 @@ func (*ConfigReloadRequest) New() Request {
 	return &ConfigReloadRequest{}
 }
 
-func (crr *ConfigReloadRequest) Response() Message {
+func (*ConfigReloadRequest) Response() Message {
 	return &NilResponse{}
 }
 
-func (crr *ConfigReloadRequest) Endpoint() string {
+func (*ConfigReloadRequest) Endpoint() string {
 	return PathConfigReload
 }
 
@@ -175,4 +176,37 @@ func (crr *ConfigReloadRequest) SetNonce(nonce []byte) error {
 
 func (crr *ConfigReloadRequest) Marshal() ([]byte, error) {
 	return json.Marshal(crr)
+}
+
+type IdentifyPublisherRequest struct {
+	NonceValue []byte `json:"nonce"`
+}
+
+func (*IdentifyPublisherRequest) New() Request {
+	return &IdentifyPublisherRequest{}
+}
+
+func (*IdentifyPublisherRequest) Response() Message {
+	return &NilResponse{}
+}
+
+func (*IdentifyPublisherRequest) Endpoint() string {
+	return PathConfigReload
+}
+
+func (ipr *IdentifyPublisherRequest) Unmarshal(byt []byte) error {
+	return json.Unmarshal(byt, ipr)
+}
+
+func (ipr *IdentifyPublisherRequest) Nonce() string {
+	return string(ipr.NonceValue)
+}
+
+func (ipr *IdentifyPublisherRequest) SetNonce(nonce []byte) error {
+	ipr.NonceValue = nonce
+	return nil
+}
+
+func (ipr *IdentifyPublisherRequest) Marshal() ([]byte, error) {
+	return json.Marshal(ipr)
 }
