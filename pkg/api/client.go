@@ -210,3 +210,16 @@ func (ipr *IdentifyPublisherRequest) SetNonce(nonce []byte) error {
 func (ipr *IdentifyPublisherRequest) Marshal() ([]byte, error) {
 	return json.Marshal(ipr)
 }
+
+type IdentifyPublisherResponse struct {
+	NonceValue []byte `json:"nonce"`
+	Publisher  string `json:"publisher"`
+}
+
+func (ipr *IdentifyPublisherResponse) Marshal() ([]byte, error) {
+	return json.Marshal(ipr)
+}
+
+func (ipr *IdentifyPublisherResponse) Unmarshal(byt []byte) error {
+	return json.Unmarshal(byt, ipr)
+}
