@@ -2,6 +2,7 @@ package config
 
 import (
 	"errors"
+	"io"
 	"net"
 	"os"
 	"path"
@@ -9,14 +10,15 @@ import (
 	"testing"
 
 	"github.com/erikh/border/pkg/josekit"
+	"github.com/erikh/go-hashchain"
 )
 
-func errorSave() ([]byte, error) {
-	return nil, errors.New("intentional error")
+func errorSave(io.Writer) error {
+	return errors.New("intentional error")
 }
 
-func errorLoad(data []byte) (*Config, error) {
-	return nil, errors.New("intentional error")
+func (c *Config) errorLoad(data []byte) error {
+	return errors.New("intentional error")
 }
 
 func TestErrors(t *testing.T) {
@@ -24,7 +26,9 @@ func TestErrors(t *testing.T) {
 		t.Fatal("ToDisk did not error")
 	}
 
-	if _, err := FromDisk(os.DevNull, errorLoad); err == nil {
+	c := New(&hashchain.Chain{})
+
+	if err := c.FromDisk(os.DevNull, c.errorLoad); err == nil {
 		t.Fatal("FromDisk did not error")
 	}
 }
@@ -39,16 +43,15 @@ func TestMarshal(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	c := Config{
-		Peers: []*Peer{
-			{
-				ControlServer: ":5309",
-				Key:           key,
-				IPs:           []net.IP{net.ParseIP("127.0.0.1")},
-			},
+	c := New(&hashchain.Chain{})
+	c.Peers = []*Peer{
+		{
+			ControlServer: ":5309",
+			Key:           key,
+			IPs:           []net.IP{net.ParseIP("127.0.0.1")},
 		},
-		Zones: map[string]*Zone{},
 	}
+	c.Zones = map[string]*Zone{}
 
 	dir, err := os.MkdirTemp("", "")
 	if err != nil {
@@ -67,8 +70,9 @@ func TestMarshal(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	c2, err := FromDisk(p, LoadJSON)
-	if err != nil {
+	c2 := New(&hashchain.Chain{})
+
+	if err := c2.FromDisk(p, c2.LoadJSON); err != nil {
 		t.Fatal(err)
 	}
 
@@ -97,8 +101,9 @@ func TestMarshal(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	c2, err = FromDisk(p, LoadYAML)
-	if err != nil {
+	c2 = New(&hashchain.Chain{})
+
+	if err := c2.FromDisk(p, c2.LoadYAML); err != nil {
 		t.Fatal(err)
 	}
 

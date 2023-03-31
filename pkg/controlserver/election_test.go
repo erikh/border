@@ -11,6 +11,7 @@ import (
 
 	"github.com/erikh/border/pkg/config"
 	"github.com/erikh/border/pkg/josekit"
+	"github.com/erikh/go-hashchain"
 )
 
 func makeMultiPeerConfig(t *testing.T, peers uint) *config.Config {
@@ -43,13 +44,12 @@ func makeMultiPeerConfig(t *testing.T, peers uint) *config.Config {
 		os.RemoveAll(dir)
 	})
 
-	c := &config.Config{
-		Peers:          peerList,
-		FilenamePrefix: filepath.Join(dir, "config"),
-		AuthKey:        authKey,
-	}
+	c := config.New(&hashchain.Chain{})
 
-	c.InitReload()
+	c.Peers = peerList
+	c.FilenamePrefix = filepath.Join(dir, "config")
+	c.AuthKey = authKey
+
 	return c
 }
 

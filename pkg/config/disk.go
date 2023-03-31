@@ -1,6 +1,8 @@
 package config
 
 import (
+	"bytes"
+	"crypto/sha512"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -12,60 +14,48 @@ import (
 	"github.com/ghodss/yaml"
 )
 
-type DumperFunc func() ([]byte, error)
-type LoaderFunc func([]byte) (*Config, error)
+type DumperFunc func(io.Writer) error // dumper is expected to close the file
+type LoaderFunc func([]byte) error
 
-func LoadJSON(data []byte) (*Config, error) {
-	var c Config
-	err := json.Unmarshal(data, &c)
-	return &c, err
+func (c *Config) LoadJSON(data []byte) error {
+	return json.Unmarshal(data, c)
 }
 
-func LoadYAML(data []byte) (*Config, error) {
-	var c Config
-	err := yaml.Unmarshal(data, &c)
-	return &c, err
+func (c *Config) LoadYAML(data []byte) error {
+	return yaml.Unmarshal(data, c)
 }
 
 func ToDisk(filename string, dumperFunc DumperFunc) error {
-	b, err := dumperFunc()
-	if err != nil {
-		return errors.Join(ErrDump, err)
-	}
-
 	f, err := os.Create(filename)
 	if err != nil {
 		return errors.Join(ErrDump, err)
 	}
 	defer f.Close()
 
-	if _, err := f.Write(b); err != nil {
+	if err := dumperFunc(f); err != nil {
 		return errors.Join(ErrDump, err)
 	}
 
 	return nil
 }
 
-func FromDisk(filename string, loaderFunc LoaderFunc) (*Config, error) {
-	var c *Config
-
+func (c *Config) FromDisk(filename string, loaderFunc LoaderFunc) error {
 	f, err := os.Open(filename)
 	if err != nil {
-		return nil, errors.Join(ErrLoad, err)
+		return errors.Join(ErrLoad, err)
 	}
 	defer f.Close()
 
 	b, err := io.ReadAll(f)
 	if err != nil {
-		return nil, errors.Join(ErrLoad, err)
+		return errors.Join(ErrLoad, err)
 	}
 
-	c, err = loaderFunc(b)
-	if err != nil {
-		return nil, errors.Join(ErrLoad, err)
+	if err := loaderFunc(b); err != nil {
+		return errors.Join(ErrLoad, err)
 	}
 
-	return c, c.postLoad(filename)
+	return c.postLoad(filename)
 }
 
 func (c *Config) postLoad(filename string) error {
@@ -81,7 +71,6 @@ func (c *Config) postLoad(filename string) error {
 	}
 
 	c.decorateZones()
-	c.InitReload()
 
 	return nil
 }
@@ -118,12 +107,35 @@ func (c *Config) Save() error {
 	return nil
 }
 
-func (c *Config) SaveJSON() ([]byte, error) {
+func (c *Config) SaveJSON(w io.Writer) error {
 	c.trimZones()
-	return json.MarshalIndent(c, "", "  ")
+
+	rdr, wtr := io.Pipe()
+	enc := json.NewEncoder(wtr)
+
+	errChan := make(chan error, 1)
+	go func() {
+		_, err := c.chain.AddInline(w, rdr, sha512.New())
+		errChan <- err
+	}()
+
+	if err := enc.Encode(c); err != nil {
+		wtr.CloseWithError(err)
+		return err
+	}
+
+	wtr.Close()
+	return <-errChan
 }
 
-func (c *Config) SaveYAML() ([]byte, error) {
+func (c *Config) SaveYAML(w io.Writer) error {
 	c.trimZones()
-	return yaml.Marshal(c)
+
+	out, err := yaml.Marshal(c)
+	if err != nil {
+		return err
+	}
+
+	_, err = io.Copy(w, bytes.NewBuffer(out))
+	return err
 }

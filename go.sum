@@ -43,6 +43,14 @@ github.com/envoyproxy/go-control-plane v0.9.4/go.mod h1:6rpuAdCZL397s3pYoYcLgu1m
 github.com/envoyproxy/protoc-gen-validate v0.1.0/go.mod h1:iSmxcyjqTsJpI2R4NaDN7+kN2VEUnK/pcBlmesArF7c=
 github.com/erikh/duct v0.3.0 h1:YJJMSbQmsU7uI1Jy+F/4gsjDstC03kK0lS37EfcaJNM=
 github.com/erikh/duct v0.3.0/go.mod h1:8zKSql8iRvht1yYX5cUtXBlCn7TiQ8gLa2+33tR4BqU=
+github.com/erikh/go-hashchain v0.0.0-20230324075751-af191ef4b281 h1:+P56+B/JOhANHoypzUL6NLymA5Us3+JPunlal63bSDE=
+github.com/erikh/go-hashchain v0.0.0-20230324075751-af191ef4b281/go.mod h1:2BzAvtG4HIm9pgaidjYctSu0F1VqDp8QDg+LOnYbnVM=
+github.com/erikh/go-hashchain v0.0.0-20230331100201-cfd6966ea586 h1:Pr7eUhus9OvwS4pwT3gtnCXJpivuDiaUFKuW3dqy4Ok=
+github.com/erikh/go-hashchain v0.0.0-20230331100201-cfd6966ea586/go.mod h1:2BzAvtG4HIm9pgaidjYctSu0F1VqDp8QDg+LOnYbnVM=
+github.com/erikh/go-hashchain v0.0.0-20230331100347-1959e6726826 h1:SRhB+fCE5dMGnq694LWCVn9DGtXYEIRAPpnN5HYZSZ8=
+github.com/erikh/go-hashchain v0.0.0-20230331100347-1959e6726826/go.mod h1:2BzAvtG4HIm9pgaidjYctSu0F1VqDp8QDg+LOnYbnVM=
+github.com/erikh/go-hashchain v0.0.0-20230331111718-31f9f541d297 h1:+KtUJiGkZDfYylsVedmV16GBkRRDXUIg9xLTSbWNtws=
+github.com/erikh/go-hashchain v0.0.0-20230331111718-31f9f541d297/go.mod h1:2BzAvtG4HIm9pgaidjYctSu0F1VqDp8QDg+LOnYbnVM=
 github.com/erikh/go-makeload v0.1.0 h1:DOYOnSAnRxJJQeLz6Th9tBW5XrpP6GLvAbRLvbP4BaI=
 github.com/erikh/go-makeload v0.1.0/go.mod h1:2q+NtMvK8D9EoTT5nhdyyjQAZOonZqSqX9j9hQwlhrY=
 github.com/erikh/ping v0.0.0-20141209185752-d731d249e12a h1:xYb+yyQiRJ/j9MeLxAxY7y5zxlKJRsuJrL9aIjvm6ys=

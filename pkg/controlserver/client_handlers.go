@@ -17,10 +17,11 @@ func (s *Server) handleConfigUpdate(req api.Request) (api.Message, error) {
 	// issue in theory, but in practice the encryption will break, rendering the
 	// response invalid.
 	s.configMutex.Lock()
-	oldConfig := s.config
-	s.config = req.(*api.ConfigUpdateRequest).Config
+	newConfig := req.(*api.ConfigUpdateRequest).Config
+	newConfig.SetChain(s.config.Chain())
 	// XXX hack around the lack of JSON serialization for FilenamePrefix
-	s.config.FilenamePrefix = oldConfig.FilenamePrefix
+	newConfig.FilenamePrefix = s.config.FilenamePrefix
+	s.config = newConfig
 	s.configMutex.Unlock()
 
 	if err := s.saveConfig(); err != nil {

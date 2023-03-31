@@ -15,6 +15,7 @@ import (
 	"github.com/erikh/border/pkg/controlclient"
 	"github.com/erikh/border/pkg/josekit"
 	"github.com/erikh/border/pkg/launcher"
+	"github.com/erikh/go-hashchain"
 	"github.com/ghodss/yaml"
 	"github.com/go-jose/go-jose/v3"
 	"github.com/peterbourgon/ff/ffcli"
@@ -104,8 +105,9 @@ func serve(args []string) error {
 		return fmt.Errorf("Please provide a peer name to serve from")
 	}
 
-	c, err := config.FromDisk(*configFile, config.LoadYAML)
-	if err != nil {
+	c := config.New(&hashchain.Chain{})
+
+	if err := c.FromDisk(*configFile, c.LoadYAML); err != nil {
 		return err
 	}
 
@@ -231,8 +233,9 @@ func clientUpdateConfig(args []string) error {
 		return errors.New("Please provide a config file to load")
 	}
 
-	c, err := config.FromDisk(args[0], config.LoadYAML)
-	if err != nil {
+	c := config.New(&hashchain.Chain{})
+
+	if err := c.FromDisk(args[0], c.LoadYAML); err != nil {
 		return err
 	}
 

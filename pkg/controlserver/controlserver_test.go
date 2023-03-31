@@ -16,6 +16,7 @@ import (
 	"github.com/erikh/border/pkg/config"
 	"github.com/erikh/border/pkg/controlclient"
 	"github.com/erikh/border/pkg/josekit"
+	"github.com/erikh/go-hashchain"
 	"github.com/go-jose/go-jose/v3"
 )
 
@@ -34,16 +35,14 @@ func makeConfig(t *testing.T) *config.Config {
 		os.RemoveAll(dir)
 	})
 
-	c := &config.Config{
-		Peers: []*config.Peer{{
-			Key: jwk,
-			IPs: []net.IP{net.ParseIP("127.0.0.1")},
-		}},
-		FilenamePrefix: filepath.Join(dir, "config"),
-		AuthKey:        jwk,
-	}
+	c := config.New(&hashchain.Chain{})
 
-	c.InitReload()
+	c.Peers = []*config.Peer{{
+		Key: jwk,
+		IPs: []net.IP{net.ParseIP("127.0.0.1")},
+	}}
+	c.FilenamePrefix = filepath.Join(dir, "config")
+	c.AuthKey = jwk
 
 	return c
 }

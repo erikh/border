@@ -24,6 +24,7 @@ require (
 	github.com/docker/docker v17.12.0-ce-rc1.0.20200505174321-1655290016ac+incompatible // indirect
 	github.com/docker/go-connections v0.4.0 // indirect
 	github.com/docker/go-units v0.4.0 // indirect
+	github.com/erikh/go-hashchain v0.0.0-20230331111718-31f9f541d297 // indirect
 	github.com/gogo/protobuf v1.3.1 // indirect
 	github.com/golang/protobuf v1.3.3 // indirect
 	github.com/konsorten/go-windows-terminal-sequences v1.0.1 // indirect

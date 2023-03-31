@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/erikh/border/pkg/dnsconfig"
+	"github.com/erikh/go-hashchain"
 	"github.com/go-jose/go-jose/v3"
 )
 
@@ -29,6 +30,7 @@ type Config struct {
 	Peers          []*Peer          `json:"peers"`
 	Zones          map[string]*Zone `json:"zones"`
 
+	chain  *hashchain.Chain
 	reload chan struct{}
 }
 
@@ -53,8 +55,20 @@ type Zone struct {
 	Records []*Record      `json:"records"`
 }
 
-func (c *Config) InitReload() {
-	c.reload = make(chan struct{}, 1)
+func New(chain *hashchain.Chain) *Config {
+	return &Config{chain: chain, reload: make(chan struct{}, 1)}
+}
+
+func (c *Config) Chain() *hashchain.Chain {
+	EditMutex.RLock()
+	defer EditMutex.RUnlock()
+	return c.chain
+}
+
+func (c *Config) SetChain(chain *hashchain.Chain) {
+	EditMutex.Lock()
+	defer EditMutex.Unlock()
+	c.chain = chain
 }
 
 func (c *Config) ReloadChan() <-chan struct{} {
@@ -62,14 +76,17 @@ func (c *Config) ReloadChan() <-chan struct{} {
 }
 
 func (c *Config) Reload() error {
-	newConfig, err := FromDisk(c.FilenamePrefix+".yaml", LoadYAML)
-	if err != nil {
+	// don't use New() here, will trump the reload channel
+	newConfig := New(c.chain)
+
+	if err := newConfig.FromDisk(c.FilenamePrefix+".yaml", newConfig.LoadYAML); err != nil {
 		return fmt.Errorf("While reloading configuration: %w", err)
 	}
 
 	EditMutex.Lock()
 	defer EditMutex.Unlock()
 	*c = *newConfig
+
 	c.reload <- struct{}{}
 
 	return nil
