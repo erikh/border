@@ -78,4 +78,6 @@ func TestElection(t *testing.T) {
 
 	c := makeMultiPeerConfig(t, count)
 	spawnServers(t, c)
+
+	// FIXME re-do this test
 }
