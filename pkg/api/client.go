@@ -187,7 +187,7 @@ func (*IdentifyPublisherRequest) New() Request {
 }
 
 func (*IdentifyPublisherRequest) Response() Message {
-	return &NilResponse{}
+	return &IdentifyPublisherResponse{}
 }
 
 func (*IdentifyPublisherRequest) Endpoint() string {

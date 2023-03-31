@@ -72,6 +72,12 @@ func main() {
 						ShortHelp: "Force a reload of the configuration",
 						Exec:      clientReloadConfig,
 					},
+					{
+						Name:      "identifypublisher",
+						Usage:     "border client identifypublisher",
+						ShortHelp: "Produce the name of the current elected publisher peer",
+						Exec:      clientIdentifyPublisher,
+					},
 				},
 			},
 			{
@@ -235,6 +241,21 @@ func clientUpdateConfig(args []string) error {
 	}
 
 	fmt.Println("OK")
+	return nil
+}
+
+func clientIdentifyPublisher(args []string) error {
+	client, err := controlclient.Load(*clientConfigFile)
+	if err != nil {
+		return fmt.Errorf("Could not load client configuration at %q: %w", *clientConfigFile, err)
+	}
+
+	resp, err := client.Exchange(&api.IdentifyPublisherRequest{}, false)
+	if err != nil {
+		return fmt.Errorf("Error identifying publisher: %w", err)
+	}
+
+	fmt.Println("Publisher:", resp.(*api.IdentifyPublisherResponse).Publisher)
 	return nil
 }
 
