@@ -190,10 +190,6 @@ func (s *Server) configureMux() *http.ServeMux {
 }
 
 func (s *Server) ReplaceConfig(newConfig *config.Config, newChain *hashchain.Chain) error {
-	// if we do not do this after encryption, the authkey may change, which will gum up the
-	// encryption of the response. Since there is no response this is not an
-	// issue in theory, but in practice the encryption will break, rendering the
-	// response invalid.
 	s.configMutex.Lock()
 	newConfig.SetChain(newChain)
 	// XXX hack around the lack of JSON serialization for FilenamePrefix

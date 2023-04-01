@@ -70,6 +70,7 @@ func (s *Server) Launch(peerName string, c *config.Config) error {
 	s.healthChecker.Start()
 
 	go s.monitorReload()
+	go s.monitorConfig()
 
 	// this should be the last thing that runs!
 	if err := s.holdElection(); err != nil {
