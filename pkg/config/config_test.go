@@ -17,7 +17,7 @@ func errorSave(io.Writer) error {
 	return errors.New("intentional error")
 }
 
-func (c *Config) errorLoad(data []byte) error {
+func (c *Config) errorLoad(io.Reader) error {
 	return errors.New("intentional error")
 }
 
@@ -26,7 +26,7 @@ func TestErrors(t *testing.T) {
 		t.Fatal("ToDisk did not error")
 	}
 
-	c := New(&hashchain.Chain{})
+	c := New(hashchain.New(nil))
 
 	if err := c.FromDisk(os.DevNull, c.errorLoad); err == nil {
 		t.Fatal("FromDisk did not error")
@@ -43,7 +43,7 @@ func TestMarshal(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	c := New(&hashchain.Chain{})
+	c := New(hashchain.New(nil))
 	c.Peers = []*Peer{
 		{
 			ControlServer: ":5309",
@@ -70,7 +70,7 @@ func TestMarshal(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	c2 := New(&hashchain.Chain{})
+	c2 := New(hashchain.New(nil))
 
 	if err := c2.FromDisk(p, c2.LoadJSON); err != nil {
 		t.Fatal(err)
@@ -101,7 +101,7 @@ func TestMarshal(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	c2 = New(&hashchain.Chain{})
+	c2 = New(hashchain.New(nil))
 
 	if err := c2.FromDisk(p, c2.LoadYAML); err != nil {
 		t.Fatal(err)

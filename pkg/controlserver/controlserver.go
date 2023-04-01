@@ -182,6 +182,7 @@ func (s *Server) configureMux() *http.ServeMux {
 	s.makeHandlerFunc(mux, http.MethodGet, &api.PeerNonceRequest{}, s.me.Key, s.handleNonce)
 	s.makeHandlerFunc(mux, http.MethodPut, &api.UptimeRequest{}, s.me.Key, s.handleUptime)
 	s.makeHandlerFunc(mux, http.MethodPut, &api.PingRequest{}, s.me.Key, s.handlePing)
+	s.makeHandlerFunc(mux, http.MethodPut, &api.ConfigChainRequest{}, s.me.Key, s.handleConfigChain)
 
 	return mux
 }

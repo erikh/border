@@ -51,6 +51,8 @@ github.com/erikh/go-hashchain v0.0.0-20230331100347-1959e6726826 h1:SRhB+fCE5dMG
 github.com/erikh/go-hashchain v0.0.0-20230331100347-1959e6726826/go.mod h1:2BzAvtG4HIm9pgaidjYctSu0F1VqDp8QDg+LOnYbnVM=
 github.com/erikh/go-hashchain v0.0.0-20230331111718-31f9f541d297 h1:+KtUJiGkZDfYylsVedmV16GBkRRDXUIg9xLTSbWNtws=
 github.com/erikh/go-hashchain v0.0.0-20230331111718-31f9f541d297/go.mod h1:2BzAvtG4HIm9pgaidjYctSu0F1VqDp8QDg+LOnYbnVM=
+github.com/erikh/go-hashchain v0.0.0-20230401131132-88e1356ff520 h1:KQyLolONIwuzQ0Rb06hjUE3kdXIRVVXDBTPWmo5UbSI=
+github.com/erikh/go-hashchain v0.0.0-20230401131132-88e1356ff520/go.mod h1:2BzAvtG4HIm9pgaidjYctSu0F1VqDp8QDg+LOnYbnVM=
 github.com/erikh/go-makeload v0.1.0 h1:DOYOnSAnRxJJQeLz6Th9tBW5XrpP6GLvAbRLvbP4BaI=
 github.com/erikh/go-makeload v0.1.0/go.mod h1:2q+NtMvK8D9EoTT5nhdyyjQAZOonZqSqX9j9hQwlhrY=
 github.com/erikh/ping v0.0.0-20141209185752-d731d249e12a h1:xYb+yyQiRJ/j9MeLxAxY7y5zxlKJRsuJrL9aIjvm6ys=

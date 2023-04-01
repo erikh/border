@@ -14,14 +14,31 @@ import (
 	"github.com/ghodss/yaml"
 )
 
-type DumperFunc func(io.Writer) error // dumper is expected to close the file
-type LoaderFunc func([]byte) error
+type DumperFunc func(io.Writer) error
+type LoaderFunc func(io.Reader) error
 
-func (c *Config) LoadJSON(data []byte) error {
-	return json.Unmarshal(data, c)
+func (c *Config) LoadJSON(r io.Reader) error {
+	rdr, wtr := io.Pipe()
+	errChan := make(chan error, 1)
+	go func() {
+		_, err := c.chain.Add(rdr, sha512.New())
+		errChan <- err
+	}()
+
+	if err := json.NewDecoder(io.TeeReader(r, wtr)).Decode(c); err != nil {
+		wtr.CloseWithError(err)
+		return err
+	}
+
+	wtr.Close()
+	return <-errChan
 }
 
-func (c *Config) LoadYAML(data []byte) error {
+func (c *Config) LoadYAML(r io.Reader) error {
+	data, err := io.ReadAll(r)
+	if err != nil {
+		return err
+	}
 	return yaml.Unmarshal(data, c)
 }
 
@@ -46,12 +63,7 @@ func (c *Config) FromDisk(filename string, loaderFunc LoaderFunc) error {
 	}
 	defer f.Close()
 
-	b, err := io.ReadAll(f)
-	if err != nil {
-		return errors.Join(ErrLoad, err)
-	}
-
-	if err := loaderFunc(b); err != nil {
+	if err := loaderFunc(f); err != nil {
 		return errors.Join(ErrLoad, err)
 	}
 
@@ -110,22 +122,7 @@ func (c *Config) Save() error {
 func (c *Config) SaveJSON(w io.Writer) error {
 	c.trimZones()
 
-	rdr, wtr := io.Pipe()
-	enc := json.NewEncoder(wtr)
-
-	errChan := make(chan error, 1)
-	go func() {
-		_, err := c.chain.AddInline(w, rdr, sha512.New())
-		errChan <- err
-	}()
-
-	if err := enc.Encode(c); err != nil {
-		wtr.CloseWithError(err)
-		return err
-	}
-
-	wtr.Close()
-	return <-errChan
+	return json.NewEncoder(w).Encode(c)
 }
 
 func (c *Config) SaveYAML(w io.Writer) error {

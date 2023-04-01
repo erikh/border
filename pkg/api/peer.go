@@ -6,9 +6,10 @@ import (
 )
 
 const (
-	PathPeerNonce = "peerNonce"
-	PathUptime    = "uptime"
-	PathPing      = "ping"
+	PathPeerNonce   = "peerNonce"
+	PathUptime      = "uptime"
+	PathPing        = "ping"
+	PathConfigChain = "configChain"
 )
 
 type PeerNonceRequest struct{}
@@ -117,4 +118,50 @@ func (pr *PingRequest) SetNonce(nonce []byte) error {
 
 func (pr *PingRequest) Marshal() ([]byte, error) {
 	return json.Marshal(pr)
+}
+
+type ConfigChainRequest struct {
+	NonceValue []byte `json:"nonce"`
+}
+
+func (*ConfigChainRequest) New() Request {
+	return &ConfigChainRequest{}
+}
+
+func (*ConfigChainRequest) Response() Message {
+	return &ConfigChainResponse{}
+}
+
+func (*ConfigChainRequest) Endpoint() string {
+	return PathConfigChain
+}
+
+func (cr *ConfigChainRequest) Unmarshal(byt []byte) error {
+	return json.Unmarshal(byt, cr)
+}
+
+func (cr *ConfigChainRequest) Nonce() string {
+	return string(cr.NonceValue)
+}
+
+func (cr *ConfigChainRequest) SetNonce(nonce []byte) error {
+	cr.NonceValue = nonce
+	return nil
+}
+
+func (cr *ConfigChainRequest) Marshal() ([]byte, error) {
+	return json.Marshal(cr)
+}
+
+type ConfigChainResponse struct {
+	NonceValue []byte   `json:"nonce"`
+	Chain      []string `json:"chain"`
+}
+
+func (cr *ConfigChainResponse) Unmarshal(byt []byte) error {
+	return json.Unmarshal(byt, cr)
+}
+
+func (cr *ConfigChainResponse) Marshal() ([]byte, error) {
+	return json.Marshal(cr)
 }

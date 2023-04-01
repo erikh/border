@@ -105,7 +105,7 @@ func serve(args []string) error {
 		return fmt.Errorf("Please provide a peer name to serve from")
 	}
 
-	c := config.New(&hashchain.Chain{})
+	c := config.New(hashchain.New(nil))
 
 	if err := c.FromDisk(*configFile, c.LoadYAML); err != nil {
 		return err
@@ -233,7 +233,7 @@ func clientUpdateConfig(args []string) error {
 		return errors.New("Please provide a config file to load")
 	}
 
-	c := config.New(&hashchain.Chain{})
+	c := config.New(hashchain.New(nil))
 
 	if err := c.FromDisk(args[0], c.LoadYAML); err != nil {
 		return err

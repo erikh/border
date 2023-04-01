@@ -35,7 +35,7 @@ func makeConfig(t *testing.T) *config.Config {
 		os.RemoveAll(dir)
 	})
 
-	c := config.New(&hashchain.Chain{})
+	c := config.New(hashchain.New(nil))
 
 	c.Peers = []*config.Peer{{
 		Key: jwk,

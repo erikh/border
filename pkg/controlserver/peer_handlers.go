@@ -15,3 +15,9 @@ func (s *Server) handleUptime(req api.Request) (api.Message, error) {
 	resp.Uptime = time.Since(s.bootTime)
 	return resp, nil
 }
+
+func (s *Server) handleConfigChain(req api.Request) (api.Message, error) {
+	resp := req.Response().(*api.ConfigChainResponse)
+	resp.Chain = s.config.Chain().AllSums()
+	return resp, nil
+}
