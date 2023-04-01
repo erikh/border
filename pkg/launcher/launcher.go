@@ -19,6 +19,7 @@ import (
 	"github.com/erikh/border/pkg/election"
 	"github.com/erikh/border/pkg/healthcheck"
 	"github.com/erikh/border/pkg/lb"
+	"github.com/erikh/go-hashchain"
 )
 
 type Server struct {
@@ -94,6 +95,69 @@ func (s *Server) Shutdown(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+func (s *Server) monitorConfig() {
+	for {
+		time.Sleep(time.Second)
+		publisher := s.config.GetPublisher()
+
+		if publisher == nil {
+			log.Println("Publisher was unset; waiting for publisher to appear")
+			continue
+		}
+
+		client := controlclient.FromPeer(publisher)
+		resp, err := client.Exchange(&api.ConfigChainRequest{}, true)
+		if err != nil {
+			log.Printf("Could not get configuration chain from publisher %q: %v", publisher.Name(), err)
+			continue
+		}
+
+		publisherChain, err := hashchain.NewFromString(resp.(*api.ConfigChainResponse).Chain)
+		if err != nil {
+			log.Printf("Chain from publisher %q was invalid: %v", publisher.Name(), err)
+			continue
+		}
+
+		chainSum, err := s.config.Chain().Sum(config.HashFunc())
+		if err != nil {
+			log.Printf("Could not sum config chain: %v", err)
+			continue
+		}
+
+		publisherSum, err := publisherChain.Sum(config.HashFunc())
+		if err != nil {
+			log.Printf("Could not sum publisher %q config chain: %v", publisher.Name(), err)
+			continue
+		}
+
+		if chainSum != publisherSum {
+			// ensure our chain is an ancestor of the publisher
+			if _, err := publisherChain.LastMatch(s.config.Chain()); err != nil {
+				log.Printf("Publisher %q's configuration never had our configuration as an ancestor: %v", publisher.Name(), err)
+				continue // FIXME not sure what to do here really
+			}
+
+			resp, err := client.Exchange(&api.ConfigFetchRequest{}, true)
+			if err != nil {
+				log.Printf("Config changed in publisher %q, but could not fetch updated configuration: %v", publisher.Name(), err)
+				continue
+			}
+
+			newConfigResp := resp.(*api.ConfigFetchResponse)
+			newChain, err := hashchain.NewFromString(newConfigResp.Chain)
+			if err != nil {
+				log.Printf("Could not parse generational chain of configuration from publisher %q: %v", publisher.Name(), err)
+				continue
+			}
+
+			if err := s.control.ReplaceConfig(newConfigResp.Config, newChain); err != nil {
+				log.Printf("Could not persist configuration from publisher %q locally: %v", publisher.Name(), err)
+				continue
+			}
+		}
+	}
 }
 
 func (s *Server) monitorReload() {

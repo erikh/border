@@ -14,6 +14,7 @@ import (
 
 	"github.com/erikh/border/pkg/api"
 	"github.com/erikh/border/pkg/config"
+	"github.com/erikh/go-hashchain"
 	"github.com/go-jose/go-jose/v3"
 )
 
@@ -183,8 +184,24 @@ func (s *Server) configureMux() *http.ServeMux {
 	s.makeHandlerFunc(mux, http.MethodPut, &api.UptimeRequest{}, s.me.Key, s.handleUptime)
 	s.makeHandlerFunc(mux, http.MethodPut, &api.PingRequest{}, s.me.Key, s.handlePing)
 	s.makeHandlerFunc(mux, http.MethodPut, &api.ConfigChainRequest{}, s.me.Key, s.handleConfigChain)
+	s.makeHandlerFunc(mux, http.MethodPut, &api.ConfigFetchRequest{}, s.me.Key, s.handleConfigFetch)
 
 	return mux
+}
+
+func (s *Server) ReplaceConfig(newConfig *config.Config, newChain *hashchain.Chain) error {
+	// if we do not do this after encryption, the authkey may change, which will gum up the
+	// encryption of the response. Since there is no response this is not an
+	// issue in theory, but in practice the encryption will break, rendering the
+	// response invalid.
+	s.configMutex.Lock()
+	newConfig.SetChain(newChain)
+	// XXX hack around the lack of JSON serialization for FilenamePrefix
+	newConfig.FilenamePrefix = s.config.FilenamePrefix
+	s.config = newConfig
+	s.configMutex.Unlock()
+
+	return s.saveConfig()
 }
 
 func (s *Server) saveConfig() error {

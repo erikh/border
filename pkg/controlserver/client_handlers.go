@@ -12,23 +12,8 @@ func (s *Server) handleAuthCheck(req api.Request) (api.Message, error) {
 }
 
 func (s *Server) handleConfigUpdate(req api.Request) (api.Message, error) {
-	// if we do not do this after encryption, the authkey may change, which will gum up the
-	// encryption of the response. Since there is no response this is not an
-	// issue in theory, but in practice the encryption will break, rendering the
-	// response invalid.
-	s.configMutex.Lock()
 	newConfig := req.(*api.ConfigUpdateRequest).Config
-	newConfig.SetChain(s.config.Chain())
-	// XXX hack around the lack of JSON serialization for FilenamePrefix
-	newConfig.FilenamePrefix = s.config.FilenamePrefix
-	s.config = newConfig
-	s.configMutex.Unlock()
-
-	if err := s.saveConfig(); err != nil {
-		return nil, err
-	}
-
-	return req.Response(), nil
+	return req.Response(), s.ReplaceConfig(newConfig, s.config.Chain())
 }
 
 func (s *Server) handlePeerRegister(req api.Request) (api.Message, error) {

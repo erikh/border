@@ -2,7 +2,6 @@ package config
 
 import (
 	"bytes"
-	"crypto/sha512"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -21,7 +20,7 @@ func (c *Config) LoadJSON(r io.Reader) error {
 	rdr, wtr := io.Pipe()
 	errChan := make(chan error, 1)
 	go func() {
-		_, err := c.chain.Add(rdr, sha512.New())
+		_, err := c.chain.Add(rdr, HashFunc())
 		errChan <- err
 	}()
 

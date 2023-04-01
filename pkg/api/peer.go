@@ -3,6 +3,8 @@ package api
 import (
 	"encoding/json"
 	"time"
+
+	"github.com/erikh/border/pkg/config"
 )
 
 const (
@@ -10,6 +12,7 @@ const (
 	PathUptime      = "uptime"
 	PathPing        = "ping"
 	PathConfigChain = "configChain"
+	PathConfigFetch = "configFetch"
 )
 
 type PeerNonceRequest struct{}
@@ -163,5 +166,52 @@ func (cr *ConfigChainResponse) Unmarshal(byt []byte) error {
 }
 
 func (cr *ConfigChainResponse) Marshal() ([]byte, error) {
+	return json.Marshal(cr)
+}
+
+type ConfigFetchRequest struct {
+	NonceValue []byte `json:"nonce"`
+}
+
+func (*ConfigFetchRequest) New() Request {
+	return &ConfigFetchRequest{}
+}
+
+func (*ConfigFetchRequest) Response() Message {
+	return &ConfigFetchResponse{}
+}
+
+func (*ConfigFetchRequest) Endpoint() string {
+	return PathConfigFetch
+}
+
+func (cr *ConfigFetchRequest) Unmarshal(byt []byte) error {
+	return json.Unmarshal(byt, cr)
+}
+
+func (cr *ConfigFetchRequest) Nonce() string {
+	return string(cr.NonceValue)
+}
+
+func (cr *ConfigFetchRequest) SetNonce(nonce []byte) error {
+	cr.NonceValue = nonce
+	return nil
+}
+
+func (cr *ConfigFetchRequest) Marshal() ([]byte, error) {
+	return json.Marshal(cr)
+}
+
+type ConfigFetchResponse struct {
+	NonceValue []byte         `json:"nonce"`
+	Config     *config.Config `json:"config"`
+	Chain      []string       `json:"chain"`
+}
+
+func (cr *ConfigFetchResponse) Unmarshal(byt []byte) error {
+	return json.Unmarshal(byt, cr)
+}
+
+func (cr *ConfigFetchResponse) Marshal() ([]byte, error) {
 	return json.Marshal(cr)
 }

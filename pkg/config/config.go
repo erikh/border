@@ -1,6 +1,7 @@
 package config
 
 import (
+	"crypto/sha512"
 	"errors"
 	"fmt"
 	"net"
@@ -18,8 +19,12 @@ var (
 	ErrPeerNotFound = errors.New("peer not found")
 )
 
-var FileMutex sync.RWMutex
-var EditMutex sync.RWMutex
+var (
+	FileMutex sync.RWMutex
+	EditMutex sync.RWMutex
+)
+
+var HashFunc = sha512.New
 
 type Config struct {
 	FilenamePrefix string           `json:"-"` // prefix of filename to save to and read from

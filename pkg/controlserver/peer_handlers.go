@@ -21,3 +21,11 @@ func (s *Server) handleConfigChain(req api.Request) (api.Message, error) {
 	resp.Chain = s.config.Chain().AllSums()
 	return resp, nil
 }
+
+func (s *Server) handleConfigFetch(req api.Request) (api.Message, error) {
+	resp := req.Response().(*api.ConfigFetchResponse)
+	resp.Config = s.config
+	resp.Chain = s.config.Chain().AllSums()
+
+	return resp, nil
+}
