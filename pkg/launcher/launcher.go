@@ -109,6 +109,7 @@ func (s *Server) monitorReload() {
 		}
 
 		// FIXME probably should make this timeout configurable
+		// FIXME need graceful shutdown
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 		if err := s.Shutdown(ctx); err != nil {
 			log.Printf("Error while shutting down for config reload: %v", err)
