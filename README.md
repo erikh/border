@@ -8,11 +8,12 @@ configuration. Zones and Balancing rules will automatically propagate to the
 new node.
 
 All network resources are treated like DNS entries, and DNS propagation ("Zone
-Transfers") do not use the primitive and insecure AXFR protocol. They use JOSE
-to distribute full configuration of the server via modern protocols with modern
-encryption and modern amenities. All nodes subscribe to a publisher node, which
-is in "legacy" terms the "master" or "owner" of the network. The publisher is
-responsible for distributing configuration to the other nodes.
+Transfers") do not use the primitive and insecure AXFR protocol. They use
+[JOSE](https://datatracker.ietf.org/wg/jose/documents/) to distribute full
+configuration of the server via modern protocols with modern encryption and
+modern amenities. All nodes subscribe to a publisher node, which is in "legacy"
+terms the "master" or "owner" of the network. The publisher is responsible for
+distributing configuration to the other nodes.
 
 Border does not depend on a consensus database. It holds its own elections and
 it is strongly recommended for this reason you run an even number of nodes in a
