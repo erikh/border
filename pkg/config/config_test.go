@@ -17,8 +17,8 @@ func errorSave(io.Writer) error {
 	return errors.New("intentional error")
 }
 
-func (c *Config) errorLoad(io.Reader) error {
-	return errors.New("intentional error")
+func errorLoad(io.Reader) (*Config, error) {
+	return nil, errors.New("intentional error")
 }
 
 func TestErrors(t *testing.T) {
@@ -28,7 +28,7 @@ func TestErrors(t *testing.T) {
 
 	c := New(hashchain.New(nil))
 
-	if err := c.FromDisk(os.DevNull, c.errorLoad); err == nil {
+	if _, err := c.FromDisk(os.DevNull, errorLoad); err == nil {
 		t.Fatal("FromDisk did not error")
 	}
 }
@@ -72,7 +72,8 @@ func TestMarshal(t *testing.T) {
 
 	c2 := New(hashchain.New(nil))
 
-	if err := c2.FromDisk(p, c2.LoadJSON); err != nil {
+	c2, err = c2.FromDisk(p, LoadJSON)
+	if err != nil {
 		t.Fatal(err)
 	}
 
@@ -103,7 +104,8 @@ func TestMarshal(t *testing.T) {
 
 	c2 = New(hashchain.New(nil))
 
-	if err := c2.FromDisk(p, c2.LoadYAML); err != nil {
+	c2, err = c2.FromDisk(p, LoadYAML)
+	if err != nil {
 		t.Fatal(err)
 	}
 

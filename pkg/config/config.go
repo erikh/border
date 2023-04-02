@@ -77,24 +77,43 @@ func (c *Config) SetChain(chain *hashchain.Chain) {
 }
 
 func (c *Config) ReloadChan() <-chan struct{} {
+	EditMutex.RLock()
+	defer EditMutex.RUnlock()
 	return c.reload
 }
 
 func (c *Config) Reload() error {
-	// don't use New() here, will trump the reload channel
-	newConfig := New(c.chain)
-
-	if err := newConfig.FromDisk(c.FilenamePrefix+".yaml", newConfig.LoadYAML); err != nil {
+	newConfig, err := c.FromDisk(c.FilenamePrefix+".json", LoadJSON)
+	if err != nil {
 		return fmt.Errorf("While reloading configuration: %w", err)
 	}
 
 	EditMutex.Lock()
-	defer EditMutex.Unlock()
-	*c = *newConfig
+	publisher := c.Publisher
+	reload := c.reload
+	chain := c.chain
+	EditMutex.Unlock()
+
+	c.CopyFrom(newConfig)
+
+	EditMutex.Lock()
+	c.Publisher = publisher
+	c.reload = reload
+	c.chain = chain
+	EditMutex.Unlock()
 
 	c.reload <- struct{}{}
-
 	return nil
+}
+
+func (c *Config) CopyFrom(newConfig *Config) {
+	EditMutex.Lock()
+	defer EditMutex.Unlock()
+	c.ShutdownWait = newConfig.ShutdownWait
+	c.AuthKey = newConfig.AuthKey
+	c.Listen = newConfig.Listen
+	c.Peers = newConfig.Peers
+	c.Zones = newConfig.Zones
 }
 
 func (c *Config) FindPeer(name string) (*Peer, error) {

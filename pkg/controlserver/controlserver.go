@@ -98,7 +98,7 @@ func Start(config *config.Config, me *config.Peer, listenSpec string, expireTime
 func (s *Server) Shutdown(ctx context.Context) error {
 	// idea of the defer is to cancel supervision after shutdown, to avoid a network race
 	defer s.cancelSupervision()
-	defer s.listener.Close()
+	s.listener.Close()
 	return s.server.Shutdown(ctx)
 }
 
@@ -192,9 +192,7 @@ func (s *Server) configureMux() *http.ServeMux {
 func (s *Server) ReplaceConfig(newConfig *config.Config, newChain *hashchain.Chain) error {
 	s.configMutex.Lock()
 	newConfig.SetChain(newChain)
-	// XXX hack around the lack of JSON serialization for FilenamePrefix
-	newConfig.FilenamePrefix = s.config.FilenamePrefix
-	s.config = newConfig
+	s.config.CopyFrom(newConfig)
 	s.configMutex.Unlock()
 
 	return s.saveConfig()

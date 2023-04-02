@@ -108,6 +108,10 @@ func (s *Server) monitorConfig() {
 			continue
 		}
 
+		if publisher.Name() == s.peerName {
+			continue
+		}
+
 		client := controlclient.FromPeer(publisher)
 		resp, err := client.Exchange(&api.ConfigChainRequest{}, true)
 		if err != nil {
@@ -162,31 +166,30 @@ func (s *Server) monitorConfig() {
 }
 
 func (s *Server) monitorReload() {
-	for {
-		// we can't just wait on the channel, because it's replaced when the
-		// configuration is reloaded, and so it will be different by _the time_ the
-		// configuration would signal this channel.
-		select {
-		case <-s.config.ReloadChan():
-		default:
-			time.Sleep(time.Second)
-			continue
-		}
-
-		// FIXME probably should make this timeout configurable
-		// FIXME need graceful shutdown
-		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-		if err := s.Shutdown(ctx); err != nil {
-			log.Printf("Error while shutting down for config reload: %v", err)
-		}
-		cancel() // no-op, but needed to clean up
-
-		if err := s.Launch(s.peerName, s.config); err != nil {
-			log.Fatalf("Error launching server after reload: %v", err)
-		}
-
-		return // a new routine will be launched from Launch(), so cancel this one
+retry:
+	select {
+	case <-time.After(time.Second):
+		goto retry
+	case <-s.config.ReloadChan():
 	}
+
+	// FIXME probably should make this timeout configurable
+	// FIXME need graceful shutdown
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	if err := s.Shutdown(ctx); err != nil {
+		log.Printf("Error while shutting down for config reload: %v", err)
+	}
+	cancel() // no-op, but needed to clean up
+
+	log.Println("New configuration received; reloading services")
+
+	s2 := &Server{}
+
+	if err := s2.Launch(s.peerName, s.config); err != nil {
+		log.Fatalf("Error launching server after reload: %v", err)
+	}
+
+	return // a new routine will be launched from Launch(), so cancel this one
 }
 
 func (s *Server) createBalancers(peerName string, c *config.Config) ([]*lb.Balancer, error) {

@@ -10,13 +10,16 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/erikh/go-hashchain"
 	"github.com/ghodss/yaml"
 )
 
 type DumperFunc func(io.Writer) error
-type LoaderFunc func(io.Reader) error
+type LoaderFunc func(io.Reader) (*Config, error)
 
-func (c *Config) LoadJSON(r io.Reader) error {
+func LoadJSON(r io.Reader) (*Config, error) {
+	c := New(hashchain.New(nil))
+
 	rdr, wtr := io.Pipe()
 	errChan := make(chan error, 1)
 	go func() {
@@ -26,19 +29,22 @@ func (c *Config) LoadJSON(r io.Reader) error {
 
 	if err := json.NewDecoder(io.TeeReader(r, wtr)).Decode(c); err != nil {
 		wtr.CloseWithError(err)
-		return err
+		return nil, err
 	}
 
 	wtr.Close()
-	return <-errChan
+	return c, <-errChan
 }
 
-func (c *Config) LoadYAML(r io.Reader) error {
+func LoadYAML(r io.Reader) (*Config, error) {
+	c := New(hashchain.New(nil))
+
 	data, err := io.ReadAll(r)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return yaml.Unmarshal(data, c)
+
+	return c, yaml.Unmarshal(data, c)
 }
 
 func ToDisk(filename string, dumperFunc DumperFunc) error {
@@ -55,23 +61,32 @@ func ToDisk(filename string, dumperFunc DumperFunc) error {
 	return nil
 }
 
-func (c *Config) FromDisk(filename string, loaderFunc LoaderFunc) error {
+func (c *Config) FromDisk(filename string, loaderFunc LoaderFunc) (*Config, error) {
+	chain := c.chain
+	reload := c.reload
+
 	f, err := os.Open(filename)
 	if err != nil {
-		return errors.Join(ErrLoad, err)
+		return nil, errors.Join(ErrLoad, err)
 	}
 	defer f.Close()
 
-	if err := loaderFunc(f); err != nil {
-		return errors.Join(ErrLoad, err)
+	newConfig, err := loaderFunc(f)
+	if err != nil {
+		return nil, errors.Join(ErrLoad, err)
 	}
 
-	return c.postLoad(filename)
+	initConfig := New(c.chain)
+	initConfig.CopyFrom(newConfig)
+
+	return initConfig, initConfig.postLoad(filename, chain, reload)
 }
 
-func (c *Config) postLoad(filename string) error {
+func (c *Config) postLoad(filename string, chain *hashchain.Chain, reload chan struct{}) error {
 	// XXX I'm going to hell for this
 	c.FilenamePrefix = strings.TrimSuffix(filename, filepath.Ext(filename))
+	c.chain = chain
+	c.reload = reload
 
 	if len(c.Peers) == 0 {
 		return errors.New("You must specify at least one peer")

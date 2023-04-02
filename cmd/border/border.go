@@ -107,9 +107,23 @@ func serve(args []string) error {
 
 	c := config.New(hashchain.New(nil))
 
-	if err := c.FromDisk(*configFile, c.LoadYAML); err != nil {
+	c, err := c.FromDisk(*configFile, config.LoadYAML)
+	if err != nil {
 		return err
 	}
+
+	// save and reload to initialize our internal JSON configuration. This is
+	// used when exchanging configuration between peers, so this is a bootstrap
+	// and only needs to be performed once.
+	if err := c.Save(); err != nil {
+		return err
+	}
+
+	if err := c.Reload(); err != nil {
+		return err
+	}
+
+	<-c.ReloadChan()
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -235,7 +249,8 @@ func clientUpdateConfig(args []string) error {
 
 	c := config.New(hashchain.New(nil))
 
-	if err := c.FromDisk(args[0], c.LoadYAML); err != nil {
+	c, err = c.FromDisk(args[0], config.LoadYAML)
+	if err != nil {
 		return err
 	}
 
