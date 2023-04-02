@@ -188,8 +188,6 @@ retry:
 	if err := s2.Launch(s.peerName, s.config); err != nil {
 		log.Fatalf("Error launching server after reload: %v", err)
 	}
-
-	return // a new routine will be launched from Launch(), so cancel this one
 }
 
 func (s *Server) createBalancers(peerName string, c *config.Config) ([]*lb.Balancer, error) {
