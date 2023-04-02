@@ -1,10 +1,11 @@
 # Border: A modern approach to DNS & Load Balancers
 
-Border is a combination of DNS service and Load Balancer. It uses this
-combination, and primitive consensus algorithms to automatically heal your
-network when there are issues. If you lose a border node, one can be
-immediately added to the cluster without additional configuration. Zones and
-Balancing rules will automatically propagate to the new node.
+Border is a combination of DNS service and Load Balancer, It uses this
+combination, internal health checking, and primitive consensus algorithms to
+automatically heal your network when there are issues. If you lose a border
+node, one can be immediately added to the cluster without additional
+configuration. Zones and Balancing rules will automatically propagate to the
+new node.
 
 All network resources are treated like DNS entries, and DNS propagation ("Zone
 Transfers") do not use the primitive and insecure AXFR protocol. They use JOSE
@@ -60,28 +61,34 @@ administrators.
 
 - [x] Provides TCP and HTTP Load Balancing
 - [ ] TLS Termination
-- [ ] Load Balancing of less typical DNS situations, such as SRV records (think tools like Samba or LDAP).
-- [x] Health checks are a part of DNS, and when a health check is failed, DNS is automatically adjusted.
-- [ ] Zone Transfers do not use the unwieldy and frequently insecure AXFR
-  protocol, instead opting for the protections provided by JOSE. Full
-  configuration is synced, not just zones.
+- [ ] Load Balancing of less typical DNS situations, such as SRV records (think
+      tools like Samba or LDAP).
+- [x] Health checks are a part of DNS, and when a health check is failed, DNS
+      is automatically adjusted.
+- [x] Zone Transfers do not use the unwieldy and frequently insecure AXFR
+      protocol, instead opting for the protections provided by JOSE. Full
+      configuration is synced, not just zones.
 - [ ] Built-in Let's Encrypt and ACME support
   - [ ] For TLS Termination
   - [ ] For DNSSEC (still need to look deeper into this one)
-- [ ] Self-Distributing architecture means fire-and-forget deployments, and a
-  fully STONITH (Shoot the offending node in the head) architecture.
+- [x] Self-Distributing architecture means fire-and-forget deployments, and a
+      fully STONITH (Shoot the offending node in the head) architecture.
 - [ ] ngrok-like agent to help border traverse NAT firewalls as well as more
-  entrenched network configurations behind e.g. Corporate Firewalls.
+      entrenched network configurations behind e.g. Corporate Firewalls.
 - [ ] Split Horizon support baked into the service, on a per network and per zone basis.
-- [ ] Capacity management in the config, e.g., "this webserver can handle 10k connections at a time, and that one can handle 5k, so don't route more than that there".
-  - [ ] Consensus based connection tracking so that load balancers can manage all servers in a criss-cut pattern, not just pool of servers that are lost when the balancer goes down.
+- [ ] Capacity management in the config, e.g., "this webserver can handle 10k
+      connections at a time, and that one can handle 5k, so don't route more than
+      that there".
+  - [ ] Consensus based connection tracking so that load balancers can manage
+        all servers in a criss-cut pattern, not just pool of servers that are lost
+        when the balancer goes down.
 - [ ] We are debating adding a caching proxy ala Squid / Varnish, as it may
-  also be a good fit in this service with a minimal footprint overall.
+      also be a good fit in this service with a minimal footprint overall.
 
 ## Some operational notes
 
-Since Border is quite literally vaporware at the time of this writing, I wanted
-to jot down a few operational notes about how Border is expected to work.
+[Here](example.yaml) is an example configuration. Documentation will come soon,
+but this displays most of the service's features at this time.
 
 Elections are held when the publisher is no longer responsive. This is a
 configurable parameter (at least, eventually). At the point an election is
@@ -89,6 +96,22 @@ held, all members vote for the service with what they think has the highest
 uptime. This should result in a clear winner as if the publisher has been
 working up to this point, this information should be communicated in the
 configuration.
+
+The appropriate cadence for replacing a failing or terminated load balancer is
+such:
+
+- Termination event of original load balancer
+- Wait for health checks to fail, and any necessary elections to complete. This
+  takes approximately a second.
+- Create a new peer in the configuration, and send it `border client
+updateconfig <myconfigfile>` to the publisher. You can use `border client
+identifypublisher` to determine the publisher.
+- Start the new peer with the updated configuration.
+
+Please note that between the termination point and the raise of the new
+instance, that unless you have lost _all_ border nodes, health checking will
+automatically heal the affected load balancing and DNS records pointing at the
+failed instance. This works _today_.
 
 Load Balancers are configured like a DNS record. The A records for a website
 are maintained as records pointing to border. Contrast with ALIAS records on
@@ -113,9 +136,10 @@ as it is much simpler to maintain.
 
 ## Status
 
-Border is currently 100% vaporware at this time. It is designed, but not
-implemented. This README is an attempt to document the high level goals so they
-can be implemented over time.
+Border is in an early alpha stage. It is functional, but lacks many of the
+features you would expect from a product of its type. Encouragement, testing,
+and patches (!) are strongly encouraged, but "betting the farm" on this product
+at this point would be an impressive display of your own lack of wisdom.
 
 ## Author
 
