@@ -4,6 +4,7 @@ go 1.20
 
 require (
 	github.com/erikh/duct v0.3.0
+	github.com/erikh/go-hashchain v0.0.0-20230401131132-88e1356ff520
 	github.com/erikh/go-makeload v0.1.0
 	github.com/erikh/ping v0.0.0-20141209185752-d731d249e12a
 	github.com/fsouza/go-dockerclient v1.6.6
@@ -11,6 +12,7 @@ require (
 	github.com/go-jose/go-jose/v3 v3.0.0
 	github.com/miekg/dns v1.1.52
 	github.com/peterbourgon/ff v1.7.1
+	github.com/vishvananda/netlink v1.1.0
 	golang.org/x/sys v0.6.0
 )
 
@@ -24,7 +26,6 @@ require (
 	github.com/docker/docker v17.12.0-ce-rc1.0.20200505174321-1655290016ac+incompatible // indirect
 	github.com/docker/go-connections v0.4.0 // indirect
 	github.com/docker/go-units v0.4.0 // indirect
-	github.com/erikh/go-hashchain v0.0.0-20230401131132-88e1356ff520 // indirect
 	github.com/gogo/protobuf v1.3.1 // indirect
 	github.com/golang/protobuf v1.3.3 // indirect
 	github.com/konsorten/go-windows-terminal-sequences v1.0.1 // indirect
@@ -37,7 +38,6 @@ require (
 	github.com/opencontainers/runc v0.1.1 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/sirupsen/logrus v1.4.2 // indirect
-	github.com/vishvananda/netlink v1.1.0 // indirect
 	github.com/vishvananda/netns v0.0.0-20191106174202-0a2b9b5464df // indirect
 	golang.org/x/crypto v0.7.0 // indirect
 	golang.org/x/mod v0.9.0 // indirect
