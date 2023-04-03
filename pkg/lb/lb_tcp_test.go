@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"net"
 	"net/url"
 	"runtime"
@@ -14,6 +13,7 @@ import (
 	"time"
 
 	"github.com/erikh/go-makeload"
+	"github.com/sirupsen/logrus"
 )
 
 func TestTCPTimeout(t *testing.T) {
@@ -43,14 +43,14 @@ func TestTCPTimeout(t *testing.T) {
 		for {
 			conn, err := backend.Accept()
 			if err != nil && !errors.Is(err, net.ErrClosed) {
-				log.Fatal(err)
+				logrus.Fatal(err)
 			} else if err != nil {
 				return
 			}
 
 			before := time.Now()
 			if _, err := io.Copy(io.Discard, conn); err != nil {
-				log.Fatal(err)
+				logrus.Fatal(err)
 				return
 			}
 
@@ -135,7 +135,7 @@ func TestTCP(t *testing.T) {
 		for {
 			conn, err := backend.Accept()
 			if err != nil && !errors.Is(err, net.ErrClosed) {
-				log.Fatal(err)
+				logrus.Fatal(err)
 			} else if err != nil {
 				return
 			}

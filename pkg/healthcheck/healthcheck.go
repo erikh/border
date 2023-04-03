@@ -3,13 +3,13 @@ package healthcheck
 import (
 	"context"
 	"fmt"
-	"log"
 	"net"
 	"net/http"
 	"sync"
 	"time"
 
 	"github.com/erikh/ping"
+	"github.com/sirupsen/logrus"
 )
 
 const (
@@ -125,7 +125,7 @@ func (hcr *HealthChecker) runChecks() {
 	for i, check := range hcr.HealthChecks {
 		go func(check *HealthCheckAction, i int) {
 			if err := check.runCheck(); err != nil {
-				log.Print(err)
+				logrus.Error(err)
 
 				var failed bool
 
@@ -136,7 +136,7 @@ func (hcr *HealthChecker) runChecks() {
 
 				if failed {
 					if err := hcr.HealthChecks[i].FailedAction(hcr.HealthChecks[i].Check); err != nil {
-						log.Printf("Triggered action on failed health check for %q also failed: %v", hcr.HealthChecks[i].Check.Name, err)
+						logrus.Errorf("Triggered action on failed health check for %q also failed: %v", hcr.HealthChecks[i].Check.Name, err)
 					}
 
 					hcr.mutex.Lock()
@@ -146,10 +146,10 @@ func (hcr *HealthChecker) runChecks() {
 			} else {
 				hcr.mutex.RLock()
 				if hcr.Failures[i] > 0 {
-					log.Printf("%q revived on target %q", check.Check.Name, check.Check.Target())
+					logrus.Infof("%q revived on target %q", check.Check.Name, check.Check.Target())
 
 					if err := check.ReviveAction(check.Check); err != nil {
-						log.Printf("Error while reviving record %q (name: %q): %v", check.Check.Target(), check.Check.Name, err)
+						logrus.Errorf("Error while reviving record %q (name: %q): %v", check.Check.Target(), check.Check.Name, err)
 					}
 
 				}

@@ -1,12 +1,12 @@
 package dnsconfig
 
 import (
-	"log"
 	"net"
 	"time"
 
 	"github.com/erikh/border/pkg/healthcheck"
 	"github.com/miekg/dns"
+	"github.com/sirupsen/logrus"
 )
 
 const (
@@ -117,14 +117,14 @@ func (lb *LB) Convert(name string) []dns.RR {
 	for _, listener := range lb.Listeners {
 		host, _, err := net.SplitHostPort(listener)
 		if err != nil {
-			log.Fatalf("Conversion error in listener %q converting to Peer IP: %v", listener, err)
+			logrus.Fatalf("Conversion error in listener %q converting to Peer IP: %v", listener, err)
 			return nil
 		}
 
 		ip := net.ParseIP(host)
 
 		if ip == nil {
-			log.Fatalf("Invalid IP after Peer conversion (%q) for listener %q", host, listener)
+			logrus.Fatalf("Invalid IP after Peer conversion (%q) for listener %q", host, listener)
 			return nil
 		} else if ip.To4() != nil {
 			ret = append(ret, dns.RR(&dns.A{

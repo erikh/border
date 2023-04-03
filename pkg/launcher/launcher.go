@@ -5,9 +5,9 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"log"
 	"net"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/erikh/border/pkg/api"
@@ -20,6 +20,7 @@ import (
 	"github.com/erikh/border/pkg/healthcheck"
 	"github.com/erikh/border/pkg/lb"
 	"github.com/erikh/go-hashchain"
+	"github.com/sirupsen/logrus"
 )
 
 type Server struct {
@@ -32,6 +33,12 @@ type Server struct {
 }
 
 func (s *Server) Launch(peerName string, c *config.Config) error {
+	if os.Getenv("DEBUG_LOG") != "" {
+		logrus.SetLevel(logrus.DebugLevel)
+	} else {
+		logrus.SetLevel(logrus.InfoLevel)
+	}
+
 	peer, err := c.FindPeer(peerName)
 	if err != nil {
 		return fmt.Errorf("Could not find the name of this peer: %q: %w", peerName, err)
@@ -104,7 +111,7 @@ func (s *Server) monitorConfig() {
 		publisher := s.config.GetPublisher()
 
 		if publisher == nil {
-			log.Println("Publisher was unset; waiting for publisher to appear")
+			logrus.Infoln("Publisher was unset; waiting for publisher to appear")
 			continue
 		}
 
@@ -115,50 +122,50 @@ func (s *Server) monitorConfig() {
 		client := controlclient.FromPeer(publisher)
 		resp, err := client.Exchange(&api.ConfigChainRequest{}, true)
 		if err != nil {
-			log.Printf("Could not get configuration chain from publisher %q: %v", publisher.Name(), err)
+			logrus.Errorf("Could not get configuration chain from publisher %q: %v", publisher.Name(), err)
 			continue
 		}
 
 		publisherChain, err := hashchain.NewFromString(resp.(*api.ConfigChainResponse).Chain)
 		if err != nil {
-			log.Printf("Chain from publisher %q was invalid: %v", publisher.Name(), err)
+			logrus.Errorf("Chain from publisher %q was invalid: %v", publisher.Name(), err)
 			continue
 		}
 
 		chainSum, err := s.config.Chain().Sum(config.HashFunc())
 		if err != nil {
-			log.Printf("Could not sum config chain: %v", err)
+			logrus.Errorf("Could not sum config chain: %v", err)
 			continue
 		}
 
 		publisherSum, err := publisherChain.Sum(config.HashFunc())
 		if err != nil {
-			log.Printf("Could not sum publisher %q config chain: %v", publisher.Name(), err)
+			logrus.Errorf("Could not sum publisher %q config chain: %v", publisher.Name(), err)
 			continue
 		}
 
 		if chainSum != publisherSum {
 			// ensure our chain is an ancestor of the publisher
 			if _, err := publisherChain.LastMatch(s.config.Chain()); err != nil {
-				log.Printf("Publisher %q's configuration never had our configuration as an ancestor: %v", publisher.Name(), err)
+				logrus.Errorf("Publisher %q's configuration never had our configuration as an ancestor: %v", publisher.Name(), err)
 				continue // FIXME not sure what to do here really
 			}
 
 			resp, err := client.Exchange(&api.ConfigFetchRequest{}, true)
 			if err != nil {
-				log.Printf("Config changed in publisher %q, but could not fetch updated configuration: %v", publisher.Name(), err)
+				logrus.Errorf("Config changed in publisher %q, but could not fetch updated configuration: %v", publisher.Name(), err)
 				continue
 			}
 
 			newConfigResp := resp.(*api.ConfigFetchResponse)
 			newChain, err := hashchain.NewFromString(newConfigResp.Chain)
 			if err != nil {
-				log.Printf("Could not parse generational chain of configuration from publisher %q: %v", publisher.Name(), err)
+				logrus.Errorf("Could not parse generational chain of configuration from publisher %q: %v", publisher.Name(), err)
 				continue
 			}
 
 			if err := s.control.ReplaceConfig(newConfigResp.Config, newChain); err != nil {
-				log.Printf("Could not persist configuration from publisher %q locally: %v", publisher.Name(), err)
+				logrus.Errorf("Could not persist configuration from publisher %q locally: %v", publisher.Name(), err)
 				continue
 			}
 		}
@@ -177,16 +184,16 @@ retry:
 	// FIXME need graceful shutdown
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	if err := s.Shutdown(ctx); err != nil {
-		log.Printf("Error while shutting down for config reload: %v", err)
+		logrus.Errorf("Error while shutting down for config reload: %v", err)
 	}
 	cancel() // no-op, but needed to clean up
 
-	log.Println("New configuration received; reloading services")
+	logrus.Infoln("New configuration received; reloading services")
 
 	s2 := &Server{}
 
 	if err := s2.Launch(s.peerName, s.config); err != nil {
-		log.Fatalf("Error launching server after reload: %v", err)
+		logrus.Errorf("Error launching server after reload: %v", err)
 	}
 }
 
@@ -246,7 +253,7 @@ func (s *Server) holdElection() error {
 		return err
 	}
 
-	log.Printf("Electing %q as new leader", peer.Name())
+	logrus.Infof("Electing %q as new leader", peer.Name())
 	s.config.SetPublisher(peer)
 	return nil
 }
@@ -272,7 +279,7 @@ func (s *Server) buildHealthChecks(c *config.Config) (*healthcheck.HealthChecker
 			r := req.(*http.Request)
 			out, err := client.PrepareRequest(&api.PingRequest{}, true)
 			if err != nil {
-				log.Printf("While preparing HTTP ping monitor for peer %q: %v", innerPeer.Name(), err)
+				logrus.Errorf("While preparing HTTP ping monitor for peer %q: %v", innerPeer.Name(), err)
 			}
 			r.Method = http.MethodPut
 			r.Body = io.NopCloser(bytes.NewBuffer(out))
@@ -319,7 +326,7 @@ func (s *Server) buildHealthChecks(c *config.Config) (*healthcheck.HealthChecker
 						checks = append(checks, &healthcheck.HealthCheckAction{
 							Check: newCheck,
 							FailedAction: func(check *healthcheck.HealthCheck) error {
-								log.Printf("Health Check for %q (name: %q) failed: pruning A record", newCheck.Target(), newCheck.Name)
+								logrus.Errorf("Health Check for %q (name: %q) failed: pruning A record", newCheck.Target(), newCheck.Name)
 								ips := []net.IP{}
 
 								for _, ip := range aRecord.Addresses {
@@ -332,7 +339,7 @@ func (s *Server) buildHealthChecks(c *config.Config) (*healthcheck.HealthChecker
 								return nil
 							},
 							ReviveAction: func(check *healthcheck.HealthCheck) error {
-								log.Printf("Health Check for %q (name: %q) revived: adjusting A record", newCheck.Target(), newCheck.Name)
+								logrus.Infof("Health Check for %q (name: %q) revived: adjusting A record", newCheck.Target(), newCheck.Name)
 
 								aRecord.Addresses = append(aRecord.Addresses, net.ParseIP(check.Target()))
 								return nil
@@ -365,7 +372,7 @@ func (s *Server) buildHealthChecks(c *config.Config) (*healthcheck.HealthChecker
 						checks = append(checks, &healthcheck.HealthCheckAction{
 							Check: newCheck,
 							FailedAction: func(check *healthcheck.HealthCheck) error {
-								log.Printf("Health Check for %q (name: %q) failed: pruning LB backend record", newCheck.Target(), newCheck.Name)
+								logrus.Errorf("Health Check for %q (name: %q) failed: pruning LB backend record", newCheck.Target(), newCheck.Name)
 								backends := []string{}
 
 								for _, be := range lbRecord.Backends {
@@ -378,7 +385,7 @@ func (s *Server) buildHealthChecks(c *config.Config) (*healthcheck.HealthChecker
 								return nil
 							},
 							ReviveAction: func(check *healthcheck.HealthCheck) error {
-								log.Printf("Health Check for %q (name: %q) revived: adjusting LB record", newCheck.Target(), newCheck.Name)
+								logrus.Infof("Health Check for %q (name: %q) revived: adjusting LB record", newCheck.Target(), newCheck.Name)
 
 								lbRecord.Backends = append(lbRecord.Backends, backend)
 								return nil
@@ -413,7 +420,7 @@ func (s *Server) buildHealthChecks(c *config.Config) (*healthcheck.HealthChecker
 							checks = append(checks, &healthcheck.HealthCheckAction{
 								Check: newCheck,
 								FailedAction: func(check *healthcheck.HealthCheck) error {
-									log.Printf("Health Check for %q (name: %q) failed: pruning LB backend record", newCheck.Target(), newCheck.Name)
+									logrus.Errorf("Health Check for %q (name: %q) failed: pruning LB backend record", newCheck.Target(), newCheck.Name)
 									listeners := []string{}
 
 									for _, lis := range lbRecord.Listeners {
@@ -426,7 +433,7 @@ func (s *Server) buildHealthChecks(c *config.Config) (*healthcheck.HealthChecker
 									return nil
 								},
 								ReviveAction: func(check *healthcheck.HealthCheck) error {
-									log.Printf("Health Check for %q (name: %q) revived: adjusting LB record", newCheck.Target(), newCheck.Name)
+									logrus.Infof("Health Check for %q (name: %q) revived: adjusting LB record", newCheck.Target(), newCheck.Name)
 
 									lbRecord.Listeners = append(lbRecord.Listeners, listener)
 									return nil

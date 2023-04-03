@@ -3,10 +3,11 @@ package lb
 import (
 	"context"
 	"fmt"
-	"log"
 	"net"
 	"sync"
 	"time"
+
+	"github.com/sirupsen/logrus"
 )
 
 type connMap map[string]int
@@ -52,7 +53,7 @@ func Init(listenSpec string, config BalancerConfig) *Balancer {
 
 	host, _, err := net.SplitHostPort(listenSpec)
 	if err != nil {
-		log.Fatalf("Invalid address in listener %q: %v", listenSpec, err)
+		logrus.Fatalf("Invalid address in listener %q: %v", listenSpec, err)
 	}
 
 	return &Balancer{

@@ -1,13 +1,13 @@
 package election
 
 import (
-	"log"
 	"sync"
 	"time"
 
 	"github.com/erikh/border/pkg/api"
 	"github.com/erikh/border/pkg/config"
 	"github.com/erikh/border/pkg/controlclient"
+	"github.com/sirupsen/logrus"
 )
 
 type Election struct {
@@ -65,7 +65,7 @@ func (e *Election) gatherUptimes() {
 	for _, peer := range e.config.Peers {
 		go func(e *Election, peer *config.Peer) {
 			if err := e.getUptime(peer); err != nil {
-				log.Printf("Peer %q could not be reached, pruning for now: %v", peer.Name(), err)
+				logrus.Errorf("Peer %q could not be reached, pruning for now: %v", peer.Name(), err)
 				e.config.RemovePeer(peer)
 			}
 			wg.Done()

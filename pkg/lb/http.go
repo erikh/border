@@ -5,11 +5,12 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"net"
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/sirupsen/logrus"
 )
 
 func (b *Balancer) dialContext(ctx context.Context, network, addr string) (net.Conn, error) {
@@ -67,7 +68,7 @@ func (b *Balancer) serveHTTP(ctx context.Context, client *http.Client) func(http
 			switch http.CanonicalHeaderKey(header) {
 			case http.CanonicalHeaderKey("x-forwarded-for"):
 				if len(values) > 1 {
-					log.Println("Multiple X-Forwarded-For headers; failing this connection")
+					logrus.Errorln("Multiple X-Forwarded-For headers; failing this connection")
 					http.Error(w, "Multiple X-Forwarded-For headers; failing this connection", http.StatusInternalServerError)
 					return
 				}

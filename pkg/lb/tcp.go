@@ -4,8 +4,9 @@ import (
 	"context"
 	"errors"
 	"io"
-	"log"
 	"net"
+
+	"github.com/sirupsen/logrus"
 )
 
 func (b *Balancer) BalanceTCP(ctx context.Context, notifyFunc func(error)) {
@@ -25,7 +26,7 @@ func (b *Balancer) acceptTCPConns(connChan chan net.Conn) {
 	for {
 		conn, err := b.listener.Accept()
 		if err != nil && !errors.Is(err, net.ErrClosed) {
-			log.Fatalf("Transient error in Accept, terminating listen. Restart border: %v", err)
+			logrus.Fatalf("Transient error in Accept, terminating listen. Restart border: %v", err)
 			return
 		} else if err != nil {
 			return
@@ -71,7 +72,7 @@ func (b *Balancer) forwardTCPConn(ctx context.Context, connChan chan net.Conn) {
 				// errors, which we do by pruning the pool right now. Something
 				// more elegant should be employed in the face of transient errors.
 				if err != nil {
-					log.Printf("Backend %q failed: removing from pool: %v", lowestAddr, err)
+					logrus.Errorf("Backend %q failed: removing from pool: %v", lowestAddr, err)
 					delete(b.backendAddresses, lowestAddr)
 					delete(b.backendConns, lowestAddr)
 					b.mutex.Unlock()

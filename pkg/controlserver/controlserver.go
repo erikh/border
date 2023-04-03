@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"net"
 	"net/http"
 	"os"
@@ -16,6 +15,7 @@ import (
 	"github.com/erikh/border/pkg/config"
 	"github.com/erikh/go-hashchain"
 	"github.com/go-jose/go-jose/v3"
+	"github.com/sirupsen/logrus"
 )
 
 const (
@@ -32,7 +32,6 @@ type Server struct {
 	me       *config.Peer
 	bootTime time.Time
 
-	debugLog     bool
 	debugPayload bool
 
 	nonces map[string]time.Time
@@ -63,8 +62,12 @@ func Start(config *config.Config, me *config.Peer, listenSpec string, expireTime
 		return nil, err
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
+	debug := os.Getenv("DEBUG_LOG") != ""
+	if debug {
+		logrus.SetLevel(logrus.DebugLevel)
+	}
 
+	ctx, cancel := context.WithCancel(context.Background())
 	server := &Server{
 		listener:          l,
 		nonces:            map[string]time.Time{},
@@ -73,8 +76,7 @@ func Start(config *config.Config, me *config.Peer, listenSpec string, expireTime
 		expireTime:        expireTime,
 		bootTime:          time.Now(),
 		me:                me,
-		debugLog:          os.Getenv("DEBUG_LOG") != "",
-		debugPayload:      os.Getenv("DEBUG_LOG_PAYLOAD") != "",
+		debugPayload:      debug && os.Getenv("DEBUG_LOG_PAYLOAD") != "",
 	}
 
 	s := &http.Server{Handler: server.configureMux()}
@@ -131,9 +133,7 @@ func (s *Server) makeHandlerFunc(mux *http.ServeMux, method string, req api.Requ
 
 func (s *Server) handle(method string, req api.Request, key *jose.JSONWebKey, f Handler) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if s.debugLog {
-			log.Print(req.Endpoint())
-		}
+		logrus.Debug(req.Endpoint())
 
 		switch method {
 		case http.MethodPut:
@@ -143,7 +143,7 @@ func (s *Server) handle(method string, req api.Request, key *jose.JSONWebKey, f 
 					http.Error(w, fmt.Sprintf("Error marshaling request: %v", err), http.StatusInternalServerError)
 					return
 				}
-				log.Printf("Payload %q", string(m))
+				logrus.Debugf("Payload %q", string(m))
 			}
 
 			if code, err := s.handleValidateNonce(r, req, key); err != nil {
