@@ -2,6 +2,7 @@ package lb
 
 import (
 	"context"
+	"crypto/rand"
 	"errors"
 	"fmt"
 	"io"
@@ -9,6 +10,7 @@ import (
 	"net/url"
 	"runtime"
 	"sync/atomic"
+	"syscall"
 	"testing"
 	"time"
 
@@ -67,7 +69,7 @@ func spawnBackends(t *testing.T, listen listenFunc) ([]string, *atomic.Uint64) {
 	return addresses, count
 }
 
-func tcpLoadGenerate(t *testing.T, addresses []string, connections uint, timeout time.Duration) makeload.LoadGenerator {
+func makeTCPBalancer(t *testing.T, addresses []string, timeout time.Duration) *Balancer {
 	config := BalancerConfig{
 		Kind:                     BalanceTCP,
 		Backends:                 addresses,
@@ -82,6 +84,12 @@ func tcpLoadGenerate(t *testing.T, addresses []string, connections uint, timeout
 	}
 
 	t.Cleanup(balancer.Shutdown)
+
+	return balancer
+}
+
+func tcpLoadGenerate(t *testing.T, addresses []string, connections uint, timeout time.Duration) makeload.LoadGenerator {
+	balancer := makeTCPBalancer(t, addresses, timeout)
 
 	u, err := url.Parse(fmt.Sprintf("http://%s", balancer.listener.Addr()))
 	if err != nil {
@@ -101,6 +109,28 @@ func tcpLoadGenerate(t *testing.T, addresses []string, connections uint, timeout
 	}
 
 	return gen
+}
+
+func TestTCPEndlessData(t *testing.T) {
+	timeTaken := &atomic.Int64{}
+
+	addresses, _ := spawnBackends(t, makeListenFunc(func(conn net.Conn) {
+		if _, err := io.Copy(io.Discard, conn); err != nil {
+			logrus.Fatal(err)
+			return
+		}
+	}, timeTaken))
+
+	balancer := makeTCPBalancer(t, addresses, 100*time.Millisecond)
+
+	conn, err := net.Dial("tcp", balancer.listener.Addr().String())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := io.Copy(conn, rand.Reader); !errors.Is(err, syscall.EPIPE) && !errors.Is(err, io.ErrClosedPipe) && !errors.Is(err, net.ErrClosed) {
+		t.Fatalf("did not receive 'is closed' error, received %q", err.Error())
+	}
 }
 
 func TestTCPDialError(t *testing.T) {
