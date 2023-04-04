@@ -111,6 +111,20 @@ func tcpLoadGenerate(t *testing.T, addresses []string, connections uint, timeout
 	return gen
 }
 
+func TestTCPDialErrors(t *testing.T) {
+	// hopefully this doesn't fail for too many people
+	balancer := makeTCPBalancer(t, []string{"127.0.0.1:1"}, 100*time.Millisecond)
+
+	conn, err := net.Dial("tcp", balancer.listener.Addr().String())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := io.Copy(conn, rand.Reader); !errors.Is(err, syscall.ECONNRESET) {
+		t.Fatalf("did not receive 'is closed' error, received %q", err.Error())
+	}
+}
+
 func TestTCPEndlessData(t *testing.T) {
 	timeTaken := &atomic.Int64{}
 
