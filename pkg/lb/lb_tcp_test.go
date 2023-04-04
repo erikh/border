@@ -88,7 +88,7 @@ func makeTCPBalancer(t *testing.T, addresses []string, timeout time.Duration) *B
 	return balancer
 }
 
-func tcpLoadGenerate(t *testing.T, addresses []string, connections uint, timeout time.Duration) makeload.LoadGenerator {
+func tcpLoadGenerate(t *testing.T, addresses []string, connections uint, timeout time.Duration) *makeload.LoadGenerator {
 	balancer := makeTCPBalancer(t, addresses, timeout)
 
 	u, err := url.Parse(fmt.Sprintf("http://%s", balancer.listener.Addr()))
@@ -108,7 +108,7 @@ func tcpLoadGenerate(t *testing.T, addresses []string, connections uint, timeout
 		t.Fatal(err)
 	}
 
-	return gen
+	return &gen
 }
 
 func TestTCPDialErrors(t *testing.T) {
