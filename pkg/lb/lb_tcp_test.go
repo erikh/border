@@ -8,7 +8,7 @@ import (
 	"net"
 	"net/url"
 	"runtime"
-	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -16,30 +16,10 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-func TestTCPTimeout(t *testing.T) {
-	var count uint64
-	var mutex sync.Mutex
-	backends := []net.Listener{}
+type listenFunc func(net.Listener, *atomic.Uint64)
 
-	t.Logf("Spawning %d backends", runtime.NumCPU())
-
-	for i := 0; i < runtime.NumCPU(); i++ {
-		backend, err := net.Listen("tcp", "127.0.0.1:0")
-		if err != nil {
-			t.Fatal(err, i)
-		}
-		backends = append(backends, backend)
-	}
-
-	t.Cleanup(func() {
-		for _, b := range backends {
-			b.Close()
-		}
-	})
-
-	var failureTime time.Duration
-
-	listen := func(backend net.Listener, count *uint64, mutex *sync.Mutex) {
+func makeListenFunc(f func(net.Conn), timeTaken *atomic.Int64) listenFunc {
+	return func(backend net.Listener, count *atomic.Uint64) {
 		for {
 			conn, err := backend.Accept()
 			if err != nil && !errors.Is(err, net.ErrClosed) {
@@ -49,70 +29,16 @@ func TestTCPTimeout(t *testing.T) {
 			}
 
 			before := time.Now()
-			if _, err := io.Copy(io.Discard, conn); err != nil {
-				logrus.Fatal(err)
-				return
-			}
-
+			f(conn)
 			conn.Close()
-
-			mutex.Lock()
-			(*count)++
-			mutex.Unlock()
-
-			failureTime += time.Since(before)
+			timeTaken.Add(int64(time.Since(before)))
+			count.Add(1)
 		}
 	}
-
-	addresses := []string{}
-
-	for _, b := range backends {
-		go listen(b, &count, &mutex)
-		addresses = append(addresses, b.Addr().String())
-	}
-
-	config := BalancerConfig{
-		Kind:                     BalanceTCP,
-		Backends:                 addresses,
-		SimultaneousConnections:  65535,
-		MaxConnectionsPerAddress: 65535,
-		ConnectionTimeout:        10 * time.Millisecond,
-	}
-
-	balancer := Init("127.0.0.1:0", config)
-	if err := balancer.Start(); err != nil {
-		t.Fatal(err)
-	}
-
-	t.Cleanup(balancer.Shutdown)
-
-	u, err := url.Parse(fmt.Sprintf("http://%s", balancer.listener.Addr()))
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	gen := makeload.LoadGenerator{
-		Concurrency:             uint(len(backends)),
-		SimultaneousConnections: 100,
-		TotalConnections:        1000,
-		URL:                     u,
-		Ctx:                     context.Background(),
-	}
-
-	if err := gen.Spawn(); err != nil {
-		t.Fatal(err)
-	}
-
-	if gen.Stats.Failures != 1000 {
-		t.Fatalf("Requests succeeded when they shouldn't have total failures: %d, successes: %d", gen.Stats.Failures, gen.Stats.Successes)
-	}
-
-	t.Logf("Average failure time: %v", time.Duration(float64(failureTime)/float64(count)))
 }
 
-func TestTCP(t *testing.T) {
-	var count uint64
-	var mutex sync.Mutex
+func spawnBackends(t *testing.T, listen listenFunc) ([]string, *atomic.Uint64) {
+	count := &atomic.Uint64{}
 	backends := []net.Listener{}
 
 	t.Logf("Spawning %d backends", runtime.NumCPU())
@@ -131,34 +57,23 @@ func TestTCP(t *testing.T) {
 		}
 	})
 
-	listen := func(backend net.Listener, count *uint64, mutex *sync.Mutex) {
-		for {
-			conn, err := backend.Accept()
-			if err != nil && !errors.Is(err, net.ErrClosed) {
-				logrus.Fatal(err)
-			} else if err != nil {
-				return
-			}
-
-			conn.Close()
-			mutex.Lock()
-			(*count)++
-			mutex.Unlock()
-		}
-	}
-
 	addresses := []string{}
 
 	for _, b := range backends {
-		go listen(b, &count, &mutex)
+		go listen(b, count)
 		addresses = append(addresses, b.Addr().String())
 	}
 
+	return addresses, count
+}
+
+func tcpLoadGenerate(t *testing.T, addresses []string, connections uint, timeout time.Duration) makeload.LoadGenerator {
 	config := BalancerConfig{
 		Kind:                     BalanceTCP,
 		Backends:                 addresses,
 		SimultaneousConnections:  65535,
 		MaxConnectionsPerAddress: 65535,
+		ConnectionTimeout:        timeout,
 	}
 
 	balancer := Init("127.0.0.1:0", config)
@@ -174,9 +89,9 @@ func TestTCP(t *testing.T) {
 	}
 
 	gen := makeload.LoadGenerator{
-		Concurrency:             uint(len(backends)),
-		SimultaneousConnections: 1000,
-		TotalConnections:        100000,
+		Concurrency:             uint(runtime.NumCPU()),
+		SimultaneousConnections: 100,
+		TotalConnections:        connections,
 		URL:                     u,
 		Ctx:                     context.Background(),
 	}
@@ -185,7 +100,58 @@ func TestTCP(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if count != 100000 {
+	return gen
+}
+
+func TestTCPDialError(t *testing.T) {
+	const connections = 1000
+	timeTaken := &atomic.Int64{}
+
+	addresses, count := spawnBackends(t, makeListenFunc(func(conn net.Conn) {}, timeTaken))
+	gen := tcpLoadGenerate(t, addresses, connections, 0)
+
+	if gen.Stats.Failures != connections {
+		t.Fatalf("Requests succeeded when they shouldn't have total failures: %d, successes: %d", gen.Stats.Failures, gen.Stats.Successes)
+	}
+
+	t.Logf("Average failure time: %v", time.Duration(uint64(timeTaken.Load())/count.Load()))
+}
+
+func TestTCPTimeout(t *testing.T) {
+	const connections = 1000
+	timeTaken := &atomic.Int64{}
+
+	listen := makeListenFunc(func(conn net.Conn) {
+		if _, err := io.Copy(io.Discard, conn); err != nil {
+			logrus.Fatal(err)
+			return
+		}
+	}, timeTaken)
+
+	addresses, count := spawnBackends(t, listen)
+	gen := tcpLoadGenerate(t, addresses, connections, 10*time.Millisecond)
+
+	if gen.Stats.Failures != connections {
+		t.Fatalf("Requests succeeded when they shouldn't have total failures: %d, successes: %d", gen.Stats.Failures, gen.Stats.Successes)
+	}
+
+	t.Logf("Average failure time: %v", time.Duration(uint64(timeTaken.Load())/count.Load()))
+}
+
+func TestTCP(t *testing.T) {
+	const connections = 100000
+	timeTaken := &atomic.Int64{}
+
+	addresses, count := spawnBackends(t, makeListenFunc(func(conn net.Conn) {}, timeTaken))
+	gen := tcpLoadGenerate(t, addresses, connections, 0)
+
+	if gen.Stats.Failures != connections {
+		t.Fatalf("Requests succeeded when they shouldn't have total failures: %d, successes: %d", gen.Stats.Failures, gen.Stats.Successes)
+	}
+
+	if count.Load() != connections {
 		t.Fatalf("Not all requests were delivered: total: %d", count)
 	}
+
+	t.Logf("Average RTT for %d connections: %v", connections, time.Duration(uint64(timeTaken.Load())/count.Load()))
 }
