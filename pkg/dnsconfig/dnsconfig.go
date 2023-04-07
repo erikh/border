@@ -101,6 +101,12 @@ const (
 	DefaultMaxConnectionsPerAddress = 32768
 )
 
+type TLSLB struct {
+	CACertificate []byte `record:"ca_certificate,optional"`
+	Certificate   []byte `record:"certificate"`
+	Key           []byte `record:"key"`
+}
+
 type LB struct {
 	Listeners                []string                   `record:"listeners"`
 	Kind                     string                     `record:"kind"`
@@ -109,6 +115,7 @@ type LB struct {
 	MaxConnectionsPerAddress int                        `record:"max_connections_per_address,optional"`
 	ConnectionTimeout        time.Duration              `record:"connection_timeout,optional"`
 	TTL                      uint32                     `record:"ttl,optional"`
+	TLS                      *TLSLB                     `record:"tls,optional"`
 	HealthCheck              []*healthcheck.HealthCheck `record:"healthcheck,optional"`
 }
 

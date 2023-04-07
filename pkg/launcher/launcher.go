@@ -208,6 +208,16 @@ func (s *Server) createBalancers(peerName string, c *config.Config) ([]*lb.Balan
 					return nil, fmt.Errorf("LB record for %q was not parsed correctly", rec.Name)
 				}
 
+				var tls *lb.TLSBalancerConfig
+
+				if lbRecord.TLS != nil {
+					tls = &lb.TLSBalancerConfig{
+						CACertificate: lbRecord.TLS.CACertificate,
+						Certificate:   lbRecord.TLS.Certificate,
+						Key:           lbRecord.TLS.Key,
+					}
+				}
+
 				// work with the IP addresses directly.
 				for _, listener := range lbRecord.Listeners {
 					host, port, err := net.SplitHostPort(listener)
@@ -221,22 +231,21 @@ func (s *Server) createBalancers(peerName string, c *config.Config) ([]*lb.Balan
 					}
 
 					for _, ip := range peer.IPs {
-						if host == ip.String() {
-							bc := lb.BalancerConfig{
-								Kind:                     lbRecord.Kind,
-								Backends:                 lbRecord.Backends,
-								SimultaneousConnections:  lbRecord.SimultaneousConnections,
-								MaxConnectionsPerAddress: lbRecord.MaxConnectionsPerAddress,
-								ConnectionTimeout:        lbRecord.ConnectionTimeout,
-							}
-
-							balancer := lb.Init(net.JoinHostPort(ip.String(), port), bc)
-							if err := balancer.Start(); err != nil {
-								return nil, fmt.Errorf("Could not start balancer %q: %v", rec.Name, err)
-							}
-
-							balancers = append(balancers, balancer)
+						bc := lb.BalancerConfig{
+							Kind:                     lbRecord.Kind,
+							Backends:                 lbRecord.Backends,
+							SimultaneousConnections:  lbRecord.SimultaneousConnections,
+							MaxConnectionsPerAddress: lbRecord.MaxConnectionsPerAddress,
+							ConnectionTimeout:        lbRecord.ConnectionTimeout,
+							TLS:                      tls,
 						}
+
+						balancer := lb.Init(net.JoinHostPort(ip.String(), port), bc)
+						if err := balancer.Start(); err != nil {
+							return nil, fmt.Errorf("Could not start balancer %q: %v", rec.Name, err)
+						}
+
+						balancers = append(balancers, balancer)
 					}
 				}
 			}

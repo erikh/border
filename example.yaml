@@ -1,57 +1,134 @@
+# if you load this file wholesale, here are a few commands to try:
+# dig -p 5300 -t soa test.home.arpa. @localhost
+# dig -p 5300 -t ns test.home.arpa. @localhost
+# dig -p 5300 -t a test.home.arpa. @localhost
+# dig -p 5300 -t a balancer.test.home.arpa. @localhost
 auth_key:
   alg: A256KW
   k: VbqOkBfoftuqk7_qzQse70AUScQJJGiR4JUfv-jHGIA
   kid: control
   kty: oct
+# generate this key with `border keygenerate` and paste it in. This is an
+# encryption and signing key. Do not use the default!
 listen:
   control: :5309
   dns: :5300
+# you must define at least one peer, this host will do fine for now.
+# peers are transformed into load balancer and "glue" records from the
+# configuration. Note the name of the peer is the `kid` below. This will
+# change.
 peers:
-- control_server: 127.0.0.1:5309
-  ips:
-  - ::1
-  - 127.0.0.1
-  key:
-    alg: A256KW
-    k: VbqOkBfoftuqk7_qzQse70AUScQJJGiR4JUfv-jHGIA
-    kid: foo
-    kty: oct
+  - control_server: 127.0.0.1:5309
+    ips:
+      - ::1
+      - 127.0.0.1
+    key:
+      alg: A256KW
+      k: VbqOkBfoftuqk7_qzQse70AUScQJJGiR4JUfv-jHGIA
+      kid: foo
+      kty: oct
 shutdown_wait: 0
+# DNS zones. Note, the records coordinate to all services border provides.
 zones:
   test.home.arpa:
     ns:
       Servers:
-      - test.home.arpa
+        - test.home.arpa
       TTL: 60
     records:
-    - name: test.home.arpa
-      type: A
-      value:
-        addresses:
-        - 127.0.0.1
-        healthcheck:
-        - failures: 3
-          timeout: 1s
-    - name: broken.test.home.arpa
-      type: A
-      value:
-        addresses:
-        - 172.16.3.1
-        healthcheck:
-        - failures: 3
-          timeout: 1s
-    - name: balancer.test.home.arpa
-      type: LB
-      value:
-        backends:
-        - 127.0.0.1:8001
-        - 127.0.0.1:8002
-        healthcheck:
-        - failures: 3
-          timeout: 1s
-        kind: tcp
-        listeners:
-        - foo:8000
+      - name: test.home.arpa
+        type: A
+        value:
+          addresses:
+            - 127.0.0.1
+          healthcheck:
+            - failures: 3
+              timeout: 1s
+      # this A record will almost certainly fail to work, which means the
+      # record will be adjusted when the health check fails
+      - name: broken.test.home.arpa
+        type: A
+        value:
+          addresses:
+            - 172.16.3.1
+          healthcheck:
+            - failures: 3
+              timeout: 1s
+      - name: balancer.test.home.arpa
+        type: LB
+        value:
+          backends:
+            - 127.0.0.1:8001
+            - 127.0.0.1:8002
+          healthcheck:
+            - failures: 3
+              timeout: 1s
+          kind: tcp
+          # note that the name 'foo' here corresponds to the peer listed
+          # above, so this will listen on localhost, ipv4 and v6.
+          listeners:
+            - foo:8000
+          tls:
+            # these are made by mkcert, don't expect them to work properly.
+            # if you want to test unencrypted support, just remove this tls
+            # block. Otherwise, `curl --insecure https://localhost:8000` with a
+            # backend on localhost:8001 or :8002. `npm install -g serve` for a
+            # simple program to serve content.
+            certificate: |
+              -----BEGIN CERTIFICATE-----
+              MIIEPDCCAqSgAwIBAgIRAKbf+ifGVw17U4OZpLVkc4owDQYJKoZIhvcNAQELBQAw
+              dTEeMBwGA1UEChMVbWtjZXJ0IGRldmVsb3BtZW50IENBMSUwIwYDVQQLDBxlcmlr
+              aEBpc2xheSAoRXJpayBIb2xsZW5zYmUpMSwwKgYDVQQDDCNta2NlcnQgZXJpa2hA
+              aXNsYXkgKEVyaWsgSG9sbGVuc2JlKTAeFw0yMzA0MDcxNDQwMTZaFw0yNTA3MDcx
+              NDQwMTZaMFAxJzAlBgNVBAoTHm1rY2VydCBkZXZlbG9wbWVudCBjZXJ0aWZpY2F0
+              ZTElMCMGA1UECwwcZXJpa2hAaXNsYXkgKEVyaWsgSG9sbGVuc2JlKTCCASIwDQYJ
+              KoZIhvcNAQEBBQADggEPADCCAQoCggEBAMOuWfdOtM7STplcvCD1TVETibOjCRSX
+              bshyD46RP85g2yyH9NT1WMzMVrH1ZZmWBtkCjLXTlz8jwaoJimBNfh3hG2kw0Ohk
+              ZIPU9bmuGln2XBan1sqyBOwMgBBupTo41FJ4FiTqIltb1MZhAnLnhngVWf5Bizio
+              Ywovm2lILGqJf4iDHCdGbZeMuTm97rJAKA5MmqJWLzk/Rch0eH6xY0a04PERkb2V
+              RzXUDkCRjK6tlCXiYOJQxPSSGLh39bHc1gSAIdcZy5gYH1Zoqm7LbZ0vrTh/RTwD
+              5njmKVVtUfoc4ZZNHaz+69NbemxKUI72dGUOHFU+I6IEl675KhiPoPECAwEAAaNs
+              MGowDgYDVR0PAQH/BAQDAgWgMBMGA1UdJQQMMAoGCCsGAQUFBwMBMB8GA1UdIwQY
+              MBaAFD4br/9gzzrv+hrAy5uvze/uSsI0MCIGA1UdEQQbMBmCF2JhbGFuY2VyLnRl
+              c3QuaG9tZS5hcnBhMA0GCSqGSIb3DQEBCwUAA4IBgQCFtPrL5u+ZxPhHqKS37m+r
+              eQ0QUl/TAOecm4CT72ii+oHo1g5uo++BltaGJpJ4T92IDDnxNFKgOxUxl7LJTtAV
+              46SjremRzvJ8s3IqfLG3lqyX09ATszLqo5BNiJbAhc0ntIRj9TFv31Lpnlq5poGQ
+              YQJwsXMfrjaCK1iS7o4Fqh9Rl7MosXEfV3X+TnDuxJ0uy/cRnPUX0V3gsMmpRs2S
+              6RJ+wZtBJ6rDZCLXlNCDDVvkyUjVoHsMH4i5IfKVegBEIva1tmCNVuhg8Zh4+bxO
+              JhwlB3r7dFbUSNYg6/YbbF/rGd/lip16ktm8R2tYjjdVao8Nfd8PD6Bl12XFCfN8
+              PrcmExt1wi+ZP79pSJ8WEvSIKlTrtDqhwQqmKthKB2r/xfjbG5ahLAPJDeuDYUa8
+              b2xs2q1/pQ7AzMSOUl6Q/Mp+6ItDsHmURl/eg8MV2Txj9QgKlwDR3Eag5Vv1zAo+
+              hslxBEwMPGUWRN8xl9rmhkEaF2fZ3MMry2aQfowtXXE=
+              -----END CERTIFICATE-----
+            key: |
+              -----BEGIN PRIVATE KEY-----
+              MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQDDrln3TrTO0k6Z
+              XLwg9U1RE4mzowkUl27Icg+OkT/OYNssh/TU9VjMzFax9WWZlgbZAoy105c/I8Gq
+              CYpgTX4d4RtpMNDoZGSD1PW5rhpZ9lwWp9bKsgTsDIAQbqU6ONRSeBYk6iJbW9TG
+              YQJy54Z4FVn+QYs4qGMKL5tpSCxqiX+IgxwnRm2XjLk5ve6yQCgOTJqiVi85P0XI
+              dHh+sWNGtODxEZG9lUc11A5AkYyurZQl4mDiUMT0khi4d/Wx3NYEgCHXGcuYGB9W
+              aKpuy22dL604f0U8A+Z45ilVbVH6HOGWTR2s/uvTW3psSlCO9nRlDhxVPiOiBJeu
+              +SoYj6DxAgMBAAECggEAVXEjx2COgmBCAaUEYD+76tLlJZLivCMDNHLZaB70BWE1
+              UlRrCzG1/HacxEeqfU2M3+TFG/+v4tnyDhTsXvB3SQSpu1ydW1u6p/Ws9c6XowB3
+              ZU0T9J2WmJs8r/AgJTP7Qac9xBCXv9xxI83oC9QcWwK3sNVdvPeJh0ESUv44pqtv
+              CnwXnVJ1lWz5licQntSQpENfsQIb71CtdnmkMBnaNF/lQyzdU1LMxKkcTsj9rvgx
+              8usJppFUBimkDwuQPhtnHqWVkXKQnhe+rLYfdlDogMnEqvwtWT8mz1RUPOFiasC+
+              bkn27yBPjV2GUryoU2ZWRZndNxAdmig2dkkfvrGUIQKBgQDxPcqUFiGObW4GyuvM
+              1wadzgPeT14ygyxADCyU7pq37ugcDv0Km5GLzk6VPtNLW2i9n6sM5xNzZ3C71B4y
+              efpp5se/pQTP+wfYRZ5xOfo7ANChudouy98hCi3GwHnbVe25QwYZuSI7pUJb9Ldi
+              vPzwnpYjx7KRJ6YjddWy9jP+xwKBgQDPpwQWwvkLwK1FHrriLelRD4KZXAqxn4+C
+              M06Xr09UsIaeEMuYYRCvYr7KTzRNkFXvQlMglLocTxn4sK6BgOxS1YmKSFaqBQyV
+              wDuM5s3qhrzAKYrkAWMbU/9HBGd7Zj/ShgQNY809w1gjQoPfSpRNWRxo6Cyzzvt4
+              LEKLLMuKhwKBgDih0eGrxFrkM5Uio/JldCctitjwduOSyZuLgBfCX83YJuMXXa3U
+              0XkpiGce5YlmPxNs3UHdKULJQLzHUgN1gSTFSZUizxtoCfJqfYSFIMojKdcdgyvD
+              LnFaK17iJnkoFfOM2WzGelPYOtjNfROP3C08fXCO28uZrDXc3rrxc0lXAoGBAMpJ
+              xe32mm8ckK9ZNG3KlBRnq66Cv9gxvLf2C4YxPnMeVMX/TpdvV7XD2GF1r1owVcbz
+              Mc/3kyao2IAwfo+ibJZ1d7vCpMqUiKIJ1vl4jvj9sTryPV/JCidBONqSK81G2r3X
+              2HLC2tpkRqRy08ze9oIzYT3BkGrKJKf5VgoG5XJZAoGAG5QPm8SWhs4Sv+pzxuc6
+              JdP4IXOnDa8gSqqeS2M/16X/X/6adonrrYXmZYt1hWmcxZQ2dj0aIVBDXaHXM8Tj
+              n8JpMMC2vlYuE+cOO/fq29xjWhmCffYhJkWosAoOxcCsRSxlbOOlivBJa2TFgeEc
+              Hu/0QCxDJ5Hhn+LkgJnkxgM=
+              -----END PRIVATE KEY-----
     soa:
       Admin: administrator.test.home.arpa
       Domain: test.home.arpa

@@ -2,6 +2,8 @@ package lb
 
 import (
 	"context"
+	"crypto/tls"
+	"encoding/pem"
 	"fmt"
 	"net"
 	"sync"
@@ -17,12 +19,19 @@ const (
 	BalanceHTTP = "http"
 )
 
+type TLSBalancerConfig struct {
+	CACertificate []byte
+	Certificate   []byte
+	Key           []byte
+}
+
 type BalancerConfig struct {
 	Kind                     string
 	Backends                 []string
 	SimultaneousConnections  int
 	MaxConnectionsPerAddress int
 	ConnectionTimeout        time.Duration
+	TLS                      *TLSBalancerConfig
 }
 
 type Balancer struct {
@@ -34,6 +43,7 @@ type Balancer struct {
 	maxConns         int           // per address
 	timeout          time.Duration // per connection
 
+	tlsConfig  *tls.Config
 	listener   net.Listener
 	listenerIP string
 	mutex      sync.RWMutex
@@ -65,23 +75,34 @@ func Init(listenSpec string, config BalancerConfig) *Balancer {
 		connBuffer:       config.SimultaneousConnections,
 		maxConns:         config.MaxConnectionsPerAddress,
 		timeout:          config.ConnectionTimeout,
+		tlsConfig:        makeTLSConfig(config),
 	}
 }
 
 func (b *Balancer) Start() error {
+	var (
+		listener net.Listener
+		err      error
+	)
+
+	if b.tlsConfig != nil {
+		listener, err = tls.Listen("tcp", b.listenSpec, b.tlsConfig)
+	} else {
+		listener, err = net.Listen("tcp", b.listenSpec)
+	}
+
+	if err != nil {
+		return fmt.Errorf("Error enabling load balancer: %w", err)
+	}
+
+	b.listener = listener
+	ctx, cancel := context.WithCancel(context.Background())
+	b.cancelFunc = cancel
+
+	errChan := make(chan error, 1)
+
 	switch b.kind {
 	case BalanceTCP:
-		listener, err := net.Listen("tcp", b.listenSpec)
-		if err != nil {
-			return fmt.Errorf("Error enabling load balancer: %w", err)
-		}
-
-		b.listener = listener
-		ctx, cancel := context.WithCancel(context.Background())
-		b.cancelFunc = cancel
-
-		errChan := make(chan error, 1)
-
 		go b.BalanceTCP(ctx, func(err error) {
 			errChan <- err
 		})
@@ -94,17 +115,6 @@ func (b *Balancer) Start() error {
 
 		return nil
 	case BalanceHTTP:
-		listener, err := net.Listen("tcp", b.listenSpec)
-		if err != nil {
-			return fmt.Errorf("Error enabling load balancer: %w", err)
-		}
-
-		b.listener = listener
-		ctx, cancel := context.WithCancel(context.Background())
-		b.cancelFunc = cancel
-
-		errChan := make(chan error, 1)
-
 		go b.BalanceHTTP(ctx, func(err error) {
 			errChan <- err
 		})
@@ -123,6 +133,36 @@ func (b *Balancer) Start() error {
 
 func (b *Balancer) Shutdown() {
 	b.cancelFunc()
+}
+
+func makeTLSConfig(config BalancerConfig) *tls.Config {
+	var tlsConfig *tls.Config
+
+	if config.TLS != nil {
+		var cacert []byte
+
+		if config.TLS.CACertificate != nil {
+			block, _ := pem.Decode(config.TLS.CACertificate)
+			if block != nil {
+				cacert = block.Bytes
+			} else {
+				logrus.Fatalf("Could not parse CA certificate as provided, is it formatted correctly?")
+			}
+		}
+
+		cert, err := tls.X509KeyPair(config.TLS.Certificate, config.TLS.Key)
+		if err != nil {
+			logrus.Fatalf("Could not load TLS certificate pair: %v", err)
+		}
+
+		if cacert != nil {
+			cert.Certificate = append(cert.Certificate, cacert)
+		}
+
+		tlsConfig = &tls.Config{Certificates: []tls.Certificate{cert}}
+	}
+
+	return tlsConfig
 }
 
 func (b *Balancer) closeConn(ctx context.Context, conn net.Conn) {
