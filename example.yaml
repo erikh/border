@@ -1,57 +1,73 @@
+# if you load this file wholesale, here are a few commands to try:
+# dig -p 5300 -t soa test.home.arpa. @localhost
+# dig -p 5300 -t ns test.home.arpa. @localhost
+# dig -p 5300 -t a test.home.arpa. @localhost
+# dig -p 5300 -t a balancer.test.home.arpa. @localhost
 auth_key:
   alg: A256KW
   k: VbqOkBfoftuqk7_qzQse70AUScQJJGiR4JUfv-jHGIA
   kid: control
   kty: oct
+# generate this key with `border keygenerate` and paste it in. This is an
+# encryption and signing key. Do not use the default!
 listen:
   control: :5309
   dns: :5300
+# you must define at least one peer, this host will do fine for now.
+# peers are transformed into load balancer and "glue" records from the
+# configuration. Note the name of the peer is the `kid` below. This will
+# change.
 peers:
-- control_server: 127.0.0.1:5309
-  ips:
-  - ::1
-  - 127.0.0.1
-  key:
-    alg: A256KW
-    k: VbqOkBfoftuqk7_qzQse70AUScQJJGiR4JUfv-jHGIA
-    kid: foo
-    kty: oct
+  - control_server: 127.0.0.1:5309
+    ips:
+      - ::1
+      - 127.0.0.1
+    key:
+      alg: A256KW
+      k: VbqOkBfoftuqk7_qzQse70AUScQJJGiR4JUfv-jHGIA
+      kid: foo
+      kty: oct
 shutdown_wait: 0
+# DNS zones. Note, the records coordinate to all services border provides.
 zones:
   test.home.arpa:
     ns:
       Servers:
-      - test.home.arpa
+        - test.home.arpa
       TTL: 60
     records:
-    - name: test.home.arpa
-      type: A
-      value:
-        addresses:
-        - 127.0.0.1
-        healthcheck:
-        - failures: 3
-          timeout: 1s
-    - name: broken.test.home.arpa
-      type: A
-      value:
-        addresses:
-        - 172.16.3.1
-        healthcheck:
-        - failures: 3
-          timeout: 1s
-    - name: balancer.test.home.arpa
-      type: LB
-      value:
-        backends:
-        - 127.0.0.1:8001
-        - 127.0.0.1:8002
-        healthcheck:
-        - failures: 3
-          timeout: 1s
-        kind: tcp
-        listeners:
-        - foo:8000
+      - name: test.home.arpa
+        type: A
+        value:
+          addresses:
+            - 127.0.0.1
+          healthcheck:
+            - failures: 3
+              timeout: 1s
+      # this A record will almost certainly fail to work, which means the
+      # record will be adjusted when the health check fails
+      - name: broken.test.home.arpa
+        type: A
+        value:
+          addresses:
+            - 172.16.3.1
+          healthcheck:
+            - failures: 3
+              timeout: 1s
+      - name: balancer.test.home.arpa
+        type: LB
+        value:
+          backends:
+            - 127.0.0.1:8001
+            - 127.0.0.1:8002
+          healthcheck:
+            - failures: 3
+              timeout: 1s
+          kind: tcp
+          # note that the name 'foo' here corresponds to the peer listed
+          # above, so this will listen on localhost, ipv4 and v6.
+          listeners:
+            - foo:8000
     soa:
       Admin: administrator.test.home.arpa
       Domain: test.home.arpa
