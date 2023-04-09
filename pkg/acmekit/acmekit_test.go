@@ -16,7 +16,10 @@ import (
 	"github.com/mholt/acmez/acme"
 )
 
-const Domain = "example.org"
+const (
+	Domain  = "example.org"
+	DNSPort = "5300"
+)
 
 func getExternalIP(t *testing.T) string {
 	addrs, err := net.InterfaceAddrs()
@@ -60,7 +63,7 @@ func createDNSServer(t *testing.T) *dnsserver.DNSServer {
 		},
 	}
 
-	if err := server.Start(getExternalIP(t) + ":5300"); err != nil {
+	if err := server.Start(getExternalIP(t) + ":" + DNSPort); err != nil {
 		t.Fatal(err)
 	}
 
@@ -84,7 +87,7 @@ func createPebble(t *testing.T) {
 				14000: 14000,
 				15000: 15000,
 			},
-			Command: []string{"/bin/sh", "-c", fmt.Sprintf("pebble -config /test/config/pebble-config.json -strict -dnsserver %s:5300", externalIP)},
+			Command: []string{"/bin/sh", "-c", fmt.Sprintf("pebble -config /test/config/pebble-config.json -strict -dnsserver %s:%s", externalIP, DNSPort)},
 			IPv4:    "10.30.50.4",
 		},
 		{
