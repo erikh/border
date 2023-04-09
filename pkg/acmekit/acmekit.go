@@ -54,8 +54,23 @@ func generatePrivateKey() (*ecdsa.PrivateKey, []byte, error) {
 
 // Determine if the user has an already properly registered and active account
 // with the ACME server.
-func (ap *ACMEParams) HasValidAccount() bool {
-	return ap.Account != nil && ap.Account.Information.Status == "valid"
+func (ap *ACMEParams) HasValidAccount(ctx context.Context) (bool, error) {
+	if ap.Account != nil && ap.Account.Information.Status == "valid" {
+		client, err := ap.makeClient()
+		if err != nil {
+			return false, err
+		}
+
+		account, err := client.GetAccount(ctx, ap.Account.Information)
+		if err != nil {
+			return false, fmt.Errorf("Error looking up ACME account on remote server: %w", err)
+		}
+
+		ap.Account.Information = account
+		return ap.Account.Information.Status == "valid", nil
+	}
+
+	return false, nil
 }
 
 // makeClient makes an ACME client
@@ -115,7 +130,19 @@ func (ap *ACMEParams) CreateAccount(ctx context.Context) error {
 	return nil
 }
 
+// GetCertificate generates a private key, gets a client, and attempts to
+// obtain a certificate. It will overwrite any existing certificate. If there
+// is no account, it will fail.
 func (ap *ACMEParams) GetCertificate(ctx context.Context, domain string) error {
+	valid, err := ap.HasValidAccount(ctx)
+	if err != nil {
+		return err
+	}
+
+	if !valid {
+		return fmt.Errorf("ACME Account is invalid, please create a new account")
+	}
+
 	pkey, marshalledPKey, err := generatePrivateKey()
 	if err != nil {
 		return err
