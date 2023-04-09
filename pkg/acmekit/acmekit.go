@@ -35,7 +35,7 @@ type ACMEParams struct {
 }
 
 func getZapLogger() (*zap.Logger, error) {
-	return zap.NewDevelopment()
+	return zap.NewProduction()
 }
 
 func generatePrivateKey() (*ecdsa.PrivateKey, []byte, error) {
