@@ -8,7 +8,7 @@ import (
 	"github.com/erikh/duct"
 )
 
-func TestACME(t *testing.T) {
+func createPebble(t *testing.T) {
 	d := duct.New(duct.Manifest{
 		{
 			Name:  "pebble",
@@ -42,6 +42,10 @@ func TestACME(t *testing.T) {
 	if err := d.Launch(context.Background()); err != nil {
 		t.Fatal(err)
 	}
+}
+
+func TestACMEAccount(t *testing.T) {
+	createPebble(t)
 
 	directory, err := url.Parse("https://127.0.0.1:14000/dir")
 	if err != nil {
