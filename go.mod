@@ -3,7 +3,7 @@ module github.com/erikh/border
 go 1.20
 
 require (
-	github.com/erikh/duct v0.3.3
+	github.com/erikh/duct v0.3.4
 	github.com/erikh/go-hashchain v0.0.0-20230401131132-88e1356ff520
 	github.com/erikh/go-makeload v0.1.0
 	github.com/erikh/ping v0.0.0-20141209185752-d731d249e12a

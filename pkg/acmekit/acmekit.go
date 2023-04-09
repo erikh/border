@@ -7,6 +7,7 @@ import (
 	"crypto/rand"
 	"crypto/tls"
 	"crypto/x509"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -15,6 +16,8 @@ import (
 	"github.com/mholt/acmez/acme"
 	"go.uber.org/zap"
 )
+
+type Solvers map[string]acmez.Solver
 
 type Certificate struct {
 	Chain      []byte `json:"chain"`
@@ -53,7 +56,7 @@ func generatePrivateKey() (*ecdsa.PrivateKey, []byte, error) {
 }
 
 // makeClient makes an ACME client
-func (ap *ACMEParams) makeClient() (*acmez.Client, error) {
+func (ap *ACMEParams) makeClient(solvers Solvers) (*acmez.Client, error) {
 	logger, err := getZapLogger()
 	if err != nil {
 		return nil, fmt.Errorf("Could not create logger: %w", err)
@@ -71,6 +74,7 @@ func (ap *ACMEParams) makeClient() (*acmez.Client, error) {
 			},
 			Logger: logger,
 		},
+		ChallengeSolvers: solvers,
 	}, nil
 }
 
@@ -78,7 +82,7 @@ func (ap *ACMEParams) makeClient() (*acmez.Client, error) {
 // with the ACME server.
 func (ap *ACMEParams) HasValidAccount(ctx context.Context) (bool, error) {
 	if ap.Account != nil && ap.Account.Information.Status == "valid" {
-		client, err := ap.makeClient()
+		client, err := ap.makeClient(nil)
 		if err != nil {
 			return false, err
 		}
@@ -112,7 +116,7 @@ func (ap *ACMEParams) CreateAccount(ctx context.Context) error {
 		PrivateKey:           pkey,
 	}
 
-	client, err := ap.makeClient()
+	client, err := ap.makeClient(nil)
 	if err != nil {
 		return fmt.Errorf("Error while making ACME client: %w", err)
 	}
@@ -130,10 +134,14 @@ func (ap *ACMEParams) CreateAccount(ctx context.Context) error {
 	return nil
 }
 
-// GetCertificate generates a private key, gets a client, and attempts to
+// GetNewCertificate generates a private key, gets a client, and attempts to
 // obtain a certificate. It will overwrite any existing certificate. If there
 // is no account, it will fail.
-func (ap *ACMEParams) GetCertificate(ctx context.Context, domain string) error {
+func (ap *ACMEParams) GetNewCertificate(ctx context.Context, domain string, solvers Solvers) error {
+	if len(solvers) == 0 {
+		return errors.New("No supplied ACME solvers")
+	}
+
 	valid, err := ap.HasValidAccount(ctx)
 	if err != nil {
 		return err
@@ -148,7 +156,7 @@ func (ap *ACMEParams) GetCertificate(ctx context.Context, domain string) error {
 		return err
 	}
 
-	client, err := ap.makeClient()
+	client, err := ap.makeClient(solvers)
 	if err != nil {
 		return fmt.Errorf("Error while making ACME client: %w", err)
 	}
@@ -168,4 +176,20 @@ func (ap *ACMEParams) GetCertificate(ctx context.Context, domain string) error {
 	}
 
 	return nil
+}
+
+// GetCertificate returns a certificate if it already has one, otherwise will
+// attempt to retrieve a new certificate.
+//
+// It currently (FIXME) does not attempt to see if a certificate is expired.
+func (ap *ACMEParams) GetCertificate(ctx context.Context, domain string, solvers Solvers) (*Certificate, error) {
+	if ap.Account.Certificates != nil && ap.Account.Certificates[domain] != nil {
+		return ap.Account.Certificates[domain], nil
+	}
+
+	if err := ap.GetNewCertificate(ctx, domain, solvers); err != nil {
+		return nil, err
+	}
+
+	return ap.Account.Certificates[domain], nil
 }

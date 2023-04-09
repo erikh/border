@@ -3,4 +3,5 @@ FROM golang
 ARG DIR=/go/src/github.com/erikh/border
 
 WORKDIR ${DIR}
-CMD go test -v ./integration-tests/...
+RUN curl https://get.docker.com | bash
+CMD sh integration-tests/run.sh
