@@ -9,8 +9,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/erikh/border/integration-tests"
-	"github.com/erikh/border/pkg/acmekit"
+	"github.com/erikh/border/pkg/config"
+	"github.com/erikh/border/pkg/dnsconfig"
+	"github.com/erikh/border/pkg/dnsserver"
 	"github.com/erikh/duct"
 	"github.com/mholt/acmez/acme"
 )
@@ -26,7 +27,51 @@ func getExternalIP(t *testing.T) string {
 	return strings.Split(addrs[1].String(), "/")[0]
 }
 
+func createDNSServer(t *testing.T) *dnsserver.DNSServer {
+	server := dnsserver.DNSServer{
+		Zones: map[string]*config.Zone{
+			"example.org.": {
+				SOA: &dnsconfig.SOA{
+					Domain:  "example.org.",
+					Admin:   "administrator.example.org.",
+					MinTTL:  60,
+					Serial:  1,
+					Refresh: 60,
+					Retry:   1,
+					Expire:  120,
+				},
+				NS: &dnsconfig.NS{
+					Servers: []string{"example.org."},
+					TTL:     60,
+				},
+				Records: []*config.Record{
+					{
+						Type: dnsconfig.TypeA,
+						Name: "example.org.",
+						Value: &dnsconfig.A{
+							Addresses: []net.IP{net.ParseIP(getExternalIP(t))},
+							TTL:       60,
+						},
+					},
+				},
+			},
+		},
+	}
+
+	if err := server.Start(getExternalIP(t) + ":5300"); err != nil {
+		t.Fatal(err)
+	}
+
+	return &server
+}
+
 func createPebble(t *testing.T) {
+	dns := createDNSServer(t)
+
+	t.Cleanup(func() {
+		dns.Shutdown()
+	})
+
 	externalIP := getExternalIP(t)
 
 	d := duct.New(duct.Manifest{
@@ -37,7 +82,7 @@ func createPebble(t *testing.T) {
 				14000: 14000,
 				15000: 15000,
 			},
-			Command: []string{"/bin/sh", "-c", "pebble -config /test/config/pebble-config.json -strict -dnsserver 10.30.50.3:8053"},
+			Command: []string{"/bin/sh", "-c", fmt.Sprintf("pebble -config /test/config/pebble-config.json -strict -dnsserver %s:5300", externalIP)},
 			IPv4:    "10.30.50.4",
 			ExtraHosts: map[string][]string{
 				externalIP: {"example.org"},
@@ -70,13 +115,13 @@ func createPebble(t *testing.T) {
 	}
 }
 
-func createACMEAccount(t *testing.T) *acmekit.ACMEParams {
+func createACMEAccount(t *testing.T) *ACMEParams {
 	directory, err := url.Parse("https://127.0.0.1:14000/dir")
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	ap := &acmekit.ACMEParams{
+	ap := &ACMEParams{
 		IgnoreVerify: true,
 		Directory:    directory,
 		ContactInfo:  []string{"mailto:erik@hollensbe.org"},
@@ -100,7 +145,6 @@ func createACMEAccount(t *testing.T) *acmekit.ACMEParams {
 
 func serveChallenge(chal acme.Challenge) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		fmt.Println("got here")
 		w.Write([]byte(chal.KeyAuthorization))
 	}
 }
@@ -109,14 +153,14 @@ func createHTTPServer(t *testing.T, chal acme.Challenge) *http.Server {
 	mux := http.NewServeMux()
 	mux.HandleFunc(chal.HTTP01ResourcePath(), serveChallenge(chal))
 
-	srv := &http.Server{Handler: mux}
+	srv := &http.Server{Addr: ":5002", Handler: mux}
 	go srv.ListenAndServe()
 
 	return srv
 }
 
 type httpSolver struct {
-	ap  *acmekit.ACMEParams
+	ap  *ACMEParams
 	srv *http.Server
 	t   *testing.T
 }
@@ -131,15 +175,11 @@ func (hs *httpSolver) CleanUp(ctx context.Context, chal acme.Challenge) error {
 }
 
 func TestACMEAccount(t *testing.T) {
-	integration.RequireDocker(t)
-
 	createPebble(t)
 	createACMEAccount(t)
 }
 
 func TestACMECreateCertificate(t *testing.T) {
-	integration.RequireDocker(t)
-
 	const domain = "example.org"
 
 	createPebble(t)
@@ -149,7 +189,7 @@ func TestACMECreateCertificate(t *testing.T) {
 		t.Fatal("Ran anyway without solvers")
 	}
 
-	if err := ap.GetNewCertificate(context.Background(), domain, acmekit.Solvers{acme.ChallengeTypeHTTP01: &httpSolver{ap: ap, t: t}}); err != nil {
+	if err := ap.GetNewCertificate(context.Background(), domain, Solvers{acme.ChallengeTypeHTTP01: &httpSolver{ap: ap, t: t}}); err != nil {
 		t.Fatal(err)
 	}
 
