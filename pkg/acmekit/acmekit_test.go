@@ -35,7 +35,7 @@ func getExternalIP(t *testing.T) string {
 func createDNSServer(t *testing.T) *dnsserver.DNSServer {
 	server := dnsserver.DNSServer{
 		Zones: map[string]*config.Zone{
-			"example.org.": {
+			Domain + ".": {
 				SOA: &dnsconfig.SOA{
 					Domain:  Domain + ".",
 					Admin:   fmt.Sprintf("administrator.%s.", Domain),
