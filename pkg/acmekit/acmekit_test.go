@@ -16,6 +16,8 @@ import (
 	"github.com/mholt/acmez/acme"
 )
 
+const Domain = "example.org"
+
 func getExternalIP(t *testing.T) string {
 	addrs, err := net.InterfaceAddrs()
 	if err != nil {
@@ -32,8 +34,8 @@ func createDNSServer(t *testing.T) *dnsserver.DNSServer {
 		Zones: map[string]*config.Zone{
 			"example.org.": {
 				SOA: &dnsconfig.SOA{
-					Domain:  "example.org.",
-					Admin:   "administrator.example.org.",
+					Domain:  Domain + ".",
+					Admin:   fmt.Sprintf("administrator.%s.", Domain),
 					MinTTL:  60,
 					Serial:  1,
 					Refresh: 60,
@@ -41,13 +43,13 @@ func createDNSServer(t *testing.T) *dnsserver.DNSServer {
 					Expire:  120,
 				},
 				NS: &dnsconfig.NS{
-					Servers: []string{"example.org."},
+					Servers: []string{Domain + "."},
 					TTL:     60,
 				},
 				Records: []*config.Record{
 					{
 						Type: dnsconfig.TypeA,
-						Name: "example.org.",
+						Name: Domain + ".",
 						Value: &dnsconfig.A{
 							Addresses: []net.IP{net.ParseIP(getExternalIP(t))},
 							TTL:       60,
@@ -84,9 +86,6 @@ func createPebble(t *testing.T) {
 			},
 			Command: []string{"/bin/sh", "-c", fmt.Sprintf("pebble -config /test/config/pebble-config.json -strict -dnsserver %s:5300", externalIP)},
 			IPv4:    "10.30.50.4",
-			ExtraHosts: map[string][]string{
-				externalIP: {"example.org"},
-			},
 		},
 		{
 			Name:  "pebble-challtestsrv",
@@ -96,9 +95,6 @@ func createPebble(t *testing.T) {
 			},
 			Command: []string{"/bin/sh", "-c", `pebble-challtestsrv -defaultIPv6 "" -defaultIPv4 10.30.50.3`},
 			IPv4:    "10.30.50.3",
-			ExtraHosts: map[string][]string{
-				externalIP: {"example.org"},
-			},
 		},
 	}, duct.WithNewNetworkAndSubnet("acmekit-test", "10.30.50.0/24"))
 
@@ -180,20 +176,28 @@ func TestACMEAccount(t *testing.T) {
 }
 
 func TestACMECreateCertificate(t *testing.T) {
-	const domain = "example.org"
-
 	createPebble(t)
 	ap := createACMEAccount(t)
 
-	if err := ap.GetNewCertificate(context.Background(), domain, nil); err == nil {
+	if err := ap.GetNewCertificate(context.Background(), Domain, nil); err == nil {
 		t.Fatal("Ran anyway without solvers")
 	}
 
-	if err := ap.GetNewCertificate(context.Background(), domain, Solvers{acme.ChallengeTypeHTTP01: &httpSolver{ap: ap, t: t}}); err != nil {
+	if err := ap.GetNewCertificate(context.Background(), Domain, Solvers{acme.ChallengeTypeHTTP01: &httpSolver{ap: ap, t: t}}); err != nil {
 		t.Fatal(err)
 	}
 
-	if ap.Account.Certificates == nil || ap.Account.Certificates[domain] == nil {
+	if ap.Account.Certificates == nil || ap.Account.Certificates[Domain] == nil {
 		t.Fatal("Certificate was not cached")
+	}
+
+	// obtain the certificate with no solvers. should return a valid cert.
+	cert, err := ap.GetCertificate(context.Background(), Domain, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if cert == nil {
+		t.Fatal("cert was nil after cache")
 	}
 }
