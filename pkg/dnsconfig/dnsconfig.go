@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/erikh/border/pkg/healthcheck"
+	"github.com/mholt/acmez/acme"
 	"github.com/miekg/dns"
 	"github.com/sirupsen/logrus"
 )
@@ -102,7 +103,8 @@ const (
 )
 
 type ACMELB struct {
-	ChallengeType string `record:"challenge_type"`
+	ChallengeType    string          `record:"challenge_type"`
+	CurrentChallenge *acme.Challenge `record:"current_challenge"`
 }
 
 type TLSLB struct {

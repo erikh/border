@@ -10,6 +10,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/erikh/border/pkg/acmekit"
 	"github.com/erikh/border/pkg/api"
 	"github.com/erikh/border/pkg/config"
 	"github.com/erikh/border/pkg/controlclient"
@@ -20,6 +21,8 @@ import (
 	"github.com/erikh/border/pkg/healthcheck"
 	"github.com/erikh/border/pkg/lb"
 	"github.com/erikh/go-hashchain"
+	"github.com/mholt/acmez"
+	"github.com/mholt/acmez/acme"
 	"github.com/sirupsen/logrus"
 )
 
@@ -210,7 +213,30 @@ func (s *Server) createBalancers(peerName string, c *config.Config) ([]*lb.Balan
 
 				var tls *lb.TLSBalancerConfig
 
-				if lbRecord.TLS != nil {
+				if lbRecord.ACME != nil {
+					var solver acmez.Solver
+
+					switch lbRecord.ACME.ChallengeType {
+					case acme.ChallengeTypeDNS01:
+						solver = c.DNSSolver(rec.Name)
+					case acme.ChallengeTypeTLSALPN01:
+						solver = c.ALPNSolver(rec.Name)
+					case acme.ChallengeTypeHTTP01:
+						solver = c.HTTPSolver(rec.Name)
+					default:
+						return nil, fmt.Errorf("%q is not a valid ACME challenge type", lbRecord.ACME.ChallengeType)
+					}
+
+					cert, err := c.ACME.GetCertificate(context.Background(), rec.Name, acmekit.Solvers{lbRecord.ACME.ChallengeType: solver})
+					if err != nil {
+						return nil, fmt.Errorf("Error obtaining ACME certificate: %w", err)
+					}
+
+					tls = &lb.TLSBalancerConfig{
+						Certificate: cert.Chain,
+						Key:         cert.PrivateKey,
+					}
+				} else if lbRecord.TLS != nil {
 					tls = &lb.TLSBalancerConfig{
 						CACertificate: lbRecord.TLS.CACertificate,
 						Certificate:   lbRecord.TLS.Certificate,
