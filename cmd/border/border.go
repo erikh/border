@@ -10,6 +10,7 @@ import (
 	"os/signal"
 	"time"
 
+	"github.com/erikh/border/pkg/acmekit"
 	"github.com/erikh/border/pkg/api"
 	"github.com/erikh/border/pkg/config"
 	"github.com/erikh/border/pkg/controlclient"
@@ -23,12 +24,17 @@ import (
 )
 
 var (
-	appFlagSet         = flag.NewFlagSet("border", flag.ExitOnError)
+	appFlagSet       = flag.NewFlagSet("border", flag.ExitOnError)
+	configFile       = appFlagSet.String("c", "/etc/border/config.yaml", "configuration file path")
+	clientConfigFile = appFlagSet.String("client", "/etc/border/client.yaml", "client configuration file path")
+
 	serveFlagSet       = flag.NewFlagSet("border serve", flag.ExitOnError)
 	clientFlagSet      = flag.NewFlagSet("border client", flag.ExitOnError)
 	keyGenerateFlagSet = flag.NewFlagSet("border keygenerate", flag.ExitOnError)
-	configFile         = appFlagSet.String("c", "/etc/border/config.yaml", "configuration file path")
-	clientConfigFile   = appFlagSet.String("client", "/etc/border/client.yaml", "client configuration file path")
+
+	acmeGenerateFlagSet = flag.NewFlagSet("border acmegenerate", flag.ExitOnError)
+	acmeDirectory       = acmeGenerateFlagSet.String("directory", "", "Third-party ACME server's directory URL")
+	acmeNoVerify        = acmeGenerateFlagSet.Bool("noverify", false, "Verify TLS certificates used to talk to the ACME server")
 )
 
 func main() {
@@ -87,6 +93,13 @@ func main() {
 				ShortHelp: "Generate a new authentication key for use in border",
 				FlagSet:   keyGenerateFlagSet,
 				Exec:      keyGenerate,
+			},
+			{
+				Name:      "acmegenerate",
+				Usage:     "border acmegenerate <email>",
+				ShortHelp: "Generate a new ACME account for use with border",
+				FlagSet:   acmeGenerateFlagSet,
+				Exec:      acmeGenerate,
 			},
 		},
 	}
@@ -293,6 +306,35 @@ func keyGenerate(args []string) error {
 	}
 
 	fmt.Println(string(byt))
+
+	return nil
+}
+
+func acmeGenerate(args []string) error {
+	if len(args) != 1 {
+		return errors.New("Please provide a contact email address for use with the ACME server")
+	}
+
+	ap := acmekit.ACMEParams{
+		IgnoreVerify: *acmeNoVerify,
+		Directory:    *acmeDirectory,
+		ContactInfo:  []string{"mailto:" + args[0]},
+	}
+
+	if err := ap.CreateAccount(context.Background()); err != nil {
+		return fmt.Errorf("While creating ACME account: %w", err)
+	}
+
+	out, err := yaml.Marshal(struct {
+		ACME acmekit.ACMEParams `json:"acme"`
+	}{ACME: ap})
+
+	if err != nil {
+		return fmt.Errorf("Unable to marshal YAML configuration: %w", err)
+	}
+
+	fmt.Println("# Please paste this into your configuration file")
+	fmt.Println(string(out))
 
 	return nil
 }
