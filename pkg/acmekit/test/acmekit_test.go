@@ -1,4 +1,8 @@
-package acmekit
+// this is stuffed in its own dir because golang treats it as an import cycle,
+// causing the whole project to fail to compile.
+//
+// brilliant design decision golang nerds
+package test
 
 import (
 	"context"
@@ -8,6 +12,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/erikh/border/pkg/acmekit"
 	"github.com/erikh/border/pkg/config"
 	"github.com/erikh/border/pkg/dnsconfig"
 	"github.com/erikh/border/pkg/dnsserver"
@@ -113,8 +118,8 @@ func createPebble(t *testing.T) {
 	}
 }
 
-func createACMEAccount(t *testing.T) *ACMEParams {
-	ap := &ACMEParams{
+func createACMEAccount(t *testing.T) *acmekit.ACMEParams {
+	ap := &acmekit.ACMEParams{
 		IgnoreVerify: true,
 		Directory:    "https://127.0.0.1:14000/dir",
 		ContactInfo:  []string{"mailto:erik@hollensbe.org"},
@@ -153,7 +158,7 @@ func createHTTPServer(t *testing.T, chal acme.Challenge) *http.Server {
 }
 
 type httpSolver struct {
-	ap  *ACMEParams
+	ap  *acmekit.ACMEParams
 	srv *http.Server
 	t   *testing.T
 }
@@ -180,7 +185,7 @@ func TestACMECreateCertificate(t *testing.T) {
 		t.Fatal("Ran anyway without solvers")
 	}
 
-	if err := ap.GetNewCertificate(context.Background(), Domain, Solvers{acme.ChallengeTypeHTTP01: &httpSolver{ap: ap, t: t}}); err != nil {
+	if err := ap.GetNewCertificate(context.Background(), Domain, acmekit.Solvers{acme.ChallengeTypeHTTP01: &httpSolver{ap: ap, t: t}}); err != nil {
 		t.Fatal(err)
 	}
 
