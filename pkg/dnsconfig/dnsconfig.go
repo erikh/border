@@ -101,6 +101,10 @@ const (
 	DefaultMaxConnectionsPerAddress = 32768
 )
 
+type ACMELB struct {
+	ChallengeType string `record:"challenge_type"`
+}
+
 type TLSLB struct {
 	CACertificate []byte `record:"ca_certificate,optional"`
 	Certificate   []byte `record:"certificate"`
@@ -116,6 +120,7 @@ type LB struct {
 	ConnectionTimeout        time.Duration              `record:"connection_timeout,optional"`
 	TTL                      uint32                     `record:"ttl,optional"`
 	TLS                      *TLSLB                     `record:"tls,optional"`
+	ACME                     *ACMELB                    `record:"acme,optional"`
 	HealthCheck              []*healthcheck.HealthCheck `record:"healthcheck,optional"`
 }
 

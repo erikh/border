@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/erikh/border/pkg/acmekit"
 	"github.com/erikh/border/pkg/dnsconfig"
 	"github.com/erikh/go-hashchain"
 	"github.com/go-jose/go-jose/v3"
@@ -27,13 +28,14 @@ var (
 var HashFunc = sha512.New
 
 type Config struct {
-	FilenamePrefix string           `json:"-"` // prefix of filename to save to and read from
-	Publisher      *Peer            `json:"-"`
-	ShutdownWait   time.Duration    `json:"shutdown_wait"`
-	AuthKey        *jose.JSONWebKey `json:"auth_key"`
-	Listen         ListenConfig     `json:"listen"`
-	Peers          []*Peer          `json:"peers"`
-	Zones          map[string]*Zone `json:"zones"`
+	FilenamePrefix string              `json:"-"` // prefix of filename to save to and read from
+	Publisher      *Peer               `json:"-"`
+	ACME           *acmekit.ACMEParams `json:"acme"`
+	ShutdownWait   time.Duration       `json:"shutdown_wait"`
+	AuthKey        *jose.JSONWebKey    `json:"auth_key"`
+	Listen         ListenConfig        `json:"listen"`
+	Peers          []*Peer             `json:"peers"`
+	Zones          map[string]*Zone    `json:"zones"`
 
 	chain  *hashchain.Chain
 	reload chan struct{}
