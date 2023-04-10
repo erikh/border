@@ -47,6 +47,8 @@ func (s *Server) Launch(peerName string, c *config.Config) error {
 		return fmt.Errorf("Could not find the name of this peer: %q: %w", peerName, err)
 	}
 
+	// NOTE the control server must start before the balancers. The CS is used in
+	// ACME challenges, which happen at LB boot.
 	cs, err := controlserver.Start(c, peer, c.Listen.Control, controlserver.NonceExpiration, 100*time.Millisecond)
 	if err != nil {
 		return fmt.Errorf("Error while starting control server: %w", err)
