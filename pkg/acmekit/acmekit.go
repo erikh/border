@@ -10,7 +10,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"net/url"
 
 	"github.com/mholt/acmez"
 	"github.com/mholt/acmez/acme"
@@ -33,7 +32,7 @@ type Account struct {
 type ACMEParams struct {
 	Account      *Account `json:"account"`
 	IgnoreVerify bool     `json:"ignore_verify"`
-	Directory    *url.URL `json:"acme_directory"`
+	Directory    string   `json:"acme_directory"`
 	ContactInfo  []string `json:"contact_info"`
 }
 
@@ -64,7 +63,7 @@ func (ap *ACMEParams) makeClient(solvers Solvers) (*acmez.Client, error) {
 
 	return &acmez.Client{
 		Client: &acme.Client{
-			Directory: ap.Directory.String(),
+			Directory: ap.Directory,
 			HTTPClient: &http.Client{
 				Transport: &http.Transport{
 					TLSClientConfig: &tls.Config{

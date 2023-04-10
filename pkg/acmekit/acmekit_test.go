@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net"
 	"net/http"
-	"net/url"
 	"strings"
 	"testing"
 
@@ -115,14 +114,9 @@ func createPebble(t *testing.T) {
 }
 
 func createACMEAccount(t *testing.T) *ACMEParams {
-	directory, err := url.Parse("https://127.0.0.1:14000/dir")
-	if err != nil {
-		t.Fatal(err)
-	}
-
 	ap := &ACMEParams{
 		IgnoreVerify: true,
-		Directory:    directory,
+		Directory:    "https://127.0.0.1:14000/dir",
 		ContactInfo:  []string{"mailto:erik@hollensbe.org"},
 	}
 
