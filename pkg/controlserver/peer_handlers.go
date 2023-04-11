@@ -35,6 +35,9 @@ func (s *Server) handleConfigFetch(req api.Request) (api.Message, error) {
 func (s *Server) handleACMEChallenge(req api.Request) (api.Message, error) {
 	resp := req.Response().(*api.ACMEChallengeResponse)
 
+	config.EditMutex.RLock() // ugly
+	defer config.EditMutex.RUnlock()
+
 	if s.config.Publisher == nil || s.config.Publisher.Name() != s.me.Name() {
 		return nil, fmt.Errorf("This node is not the publisher, does not possess ACME challenge")
 	}
@@ -63,6 +66,9 @@ func (s *Server) handleACMEReady(req api.Request) (api.Message, error) {
 		return nil, fmt.Errorf("Unable to find peer: %w", err)
 	}
 
+	config.EditMutex.Lock() // ugly
+	defer config.EditMutex.Unlock()
+
 	s.config.ACMEReady[rr.Domain] = append(s.config.ACMEReady[rr.Domain], peer)
 
 	return req.Response(), nil
@@ -71,6 +77,9 @@ func (s *Server) handleACMEReady(req api.Request) (api.Message, error) {
 func (s *Server) handleACMEServe(req api.Request) (api.Message, error) {
 	// NOTE resp.Ok will be false by default, per golang rules
 	resp := req.Response().(*api.ACMEServeResponse)
+
+	config.EditMutex.RLock() // ugly
+	defer config.EditMutex.RUnlock()
 
 	if s.config.Publisher == nil || s.config.Publisher.Name() != s.me.Name() {
 		return nil, fmt.Errorf("This node is not the publisher, does not possess ACME challenge")
@@ -81,8 +90,6 @@ func (s *Server) handleACMEServe(req api.Request) (api.Message, error) {
 		return resp, nil
 	}
 
-	config.EditMutex.RLock() // ugly
-	defer config.EditMutex.RUnlock()
 	for _, peer := range s.config.Peers {
 		var found bool
 		for _, p := range peers {
