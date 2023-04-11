@@ -221,6 +221,14 @@ func (s *Server) createBalancers(peerName string, c *config.Config) ([]*lb.Balan
 				if lbRecord.ACME != nil {
 					var solver acmez.Solver
 
+					// FIXME if we use the solvers for all the requests, then many calls
+					// that will be discarded will be made to LE, which will undoubtedly
+					// hit a rate limit. Instead, we should determine if we're the
+					// publisher, make one call, and have the rest wait.
+					//
+					// This will probably mean re-enacting the acmez.Solver interface.
+					// Not happy about that. Also not sure how it's going to work with
+					// our current call stack.
 					switch lbRecord.ACME.ChallengeType {
 					case acme.ChallengeTypeDNS01:
 						solver = solvers.DNSSolver(c, rec.Name)
