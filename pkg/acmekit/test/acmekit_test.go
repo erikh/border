@@ -78,7 +78,7 @@ func createPebble(t *testing.T) {
 	dns := createDNSServer(t)
 
 	t.Cleanup(func() {
-		dns.Shutdown()
+		dns.Shutdown() // nolint:errcheck
 	})
 
 	externalIP := getExternalIP(t)
@@ -143,7 +143,7 @@ func createACMEAccount(t *testing.T) *acmekit.ACMEParams {
 
 func serveChallenge(chal acme.Challenge) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte(chal.KeyAuthorization))
+		w.Write([]byte(chal.KeyAuthorization)) // nolint:errcheck
 	}
 }
 
@@ -152,7 +152,7 @@ func createHTTPServer(t *testing.T, chal acme.Challenge) *http.Server {
 	mux.HandleFunc(chal.HTTP01ResourcePath(), serveChallenge(chal))
 
 	srv := &http.Server{Addr: ":5002", Handler: mux}
-	go srv.ListenAndServe()
+	go srv.ListenAndServe() // nolint:errcheck
 
 	return srv
 }
