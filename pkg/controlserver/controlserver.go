@@ -189,6 +189,7 @@ func (s *Server) configureMux() *http.ServeMux {
 	// peer to peer ACME methods
 	s.makeHandlerFunc(mux, http.MethodPut, &api.ACMEChallengeRequest{}, s.me.Key, s.handleACMEChallenge)
 	s.makeHandlerFunc(mux, http.MethodPut, &api.ACMEReadyRequest{}, s.me.Key, s.handleACMEReady)
+	s.makeHandlerFunc(mux, http.MethodPut, &api.ACMEServeRequest{}, s.me.Key, s.handleACMEServe)
 
 	return mux
 }

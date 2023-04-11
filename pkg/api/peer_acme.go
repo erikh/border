@@ -9,6 +9,7 @@ import (
 const (
 	PathACMEChallenge = "acmeChallenge"
 	PathACMEReady     = "acmeReady"
+	PathACMEServe     = "acmeServe"
 )
 
 type ACMEChallengeRequest struct {
@@ -90,4 +91,50 @@ func (arr *ACMEReadyRequest) SetNonce(nonce []byte) error {
 
 func (arr *ACMEReadyRequest) Marshal() ([]byte, error) {
 	return json.Marshal(arr)
+}
+
+type ACMEServeRequest struct {
+	NonceValue []byte `json:"nonce"`
+	Domain     string `json:"domain"`
+}
+
+func (*ACMEServeRequest) New() Request {
+	return &ACMEServeRequest{}
+}
+
+func (*ACMEServeRequest) Response() Message {
+	return &ACMEServeResponse{}
+}
+
+func (*ACMEServeRequest) Endpoint() string {
+	return PathACMEServe
+}
+
+func (asr *ACMEServeRequest) Unmarshal(byt []byte) error {
+	return json.Unmarshal(byt, asr)
+}
+
+func (asr *ACMEServeRequest) Nonce() string {
+	return string(asr.NonceValue)
+}
+
+func (asr *ACMEServeRequest) SetNonce(nonce []byte) error {
+	asr.NonceValue = nonce
+	return nil
+}
+
+func (asr *ACMEServeRequest) Marshal() ([]byte, error) {
+	return json.Marshal(asr)
+}
+
+type ACMEServeResponse struct {
+	Ok bool `json:"ok"`
+}
+
+func (asr *ACMEServeResponse) Unmarshal(byt []byte) error {
+	return json.Unmarshal(byt, asr)
+}
+
+func (asr *ACMEServeResponse) Marshal() ([]byte, error) {
+	return json.Marshal(asr)
 }
