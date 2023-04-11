@@ -12,6 +12,7 @@ import (
 	"github.com/erikh/border/pkg/dnsconfig"
 	"github.com/erikh/go-hashchain"
 	"github.com/go-jose/go-jose/v3"
+	"github.com/mholt/acmez/acme"
 )
 
 var (
@@ -28,14 +29,17 @@ var (
 var HashFunc = sha512.New
 
 type Config struct {
-	FilenamePrefix string              `json:"-"` // prefix of filename to save to and read from
-	Publisher      *Peer               `json:"-"`
-	ACME           *acmekit.ACMEParams `json:"acme"`
-	ShutdownWait   time.Duration       `json:"shutdown_wait"`
-	AuthKey        *jose.JSONWebKey    `json:"auth_key"`
-	Listen         ListenConfig        `json:"listen"`
-	Peers          []*Peer             `json:"peers"`
-	Zones          map[string]*Zone    `json:"zones"`
+	FilenamePrefix string                    `json:"-"` // prefix of filename to save to and read from
+	Publisher      *Peer                     `json:"-"` // peer that's the publisher
+	ACMEChallenges map[string]acme.Challenge `json:"-"` // domain -> peers map of challenge payloads
+	ACMEReady      map[string][]*Peer        `json:"-"` // domain -> peers map of ready peers for challenge
+
+	ACME         *acmekit.ACMEParams `json:"acme"`
+	ShutdownWait time.Duration       `json:"shutdown_wait"`
+	AuthKey      *jose.JSONWebKey    `json:"auth_key"`
+	Listen       ListenConfig        `json:"listen"`
+	Peers        []*Peer             `json:"peers"`
+	Zones        map[string]*Zone    `json:"zones"`
 
 	chain  *hashchain.Chain
 	reload chan struct{}

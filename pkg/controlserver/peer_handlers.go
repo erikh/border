@@ -1,6 +1,7 @@
 package controlserver
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/erikh/border/pkg/api"
@@ -28,4 +29,40 @@ func (s *Server) handleConfigFetch(req api.Request) (api.Message, error) {
 	resp.Chain = s.config.Chain().AllSums()
 
 	return resp, nil
+}
+
+func (s *Server) handleACMEChallenge(req api.Request) (api.Message, error) {
+	resp := req.Response().(*api.ACMEChallengeResponse)
+
+	if s.config.Publisher == nil || s.config.Publisher.Name() != s.me.Name() {
+		return nil, fmt.Errorf("This node is not the publisher, does not possess ACME challenge")
+	}
+
+	chal, ok := s.config.ACMEChallenges[req.(*api.ACMEChallengeRequest).Domain]
+	if !ok {
+		return nil, fmt.Errorf("ACME challenge is not ready to be served")
+	}
+
+	resp.Challenge = chal
+	return resp, nil
+}
+
+func (s *Server) handleACMEReady(req api.Request) (api.Message, error) {
+	rr := req.(*api.ACMEReadyRequest)
+
+	// FIXME this is very much a faith-based transaction. All things said, a
+	// malicious peer could fuck with this.
+	//
+	// The solution requires a shim earlier on in the request cycle where the
+	// peer is looked up for the message decryption process. We'd have to be able
+	// to encode the peer into the api.Request, which would be a very good idea,
+	// but unavailable at the time of this writing.
+	peer, err := s.config.FindPeer(rr.Peer)
+	if err != nil {
+		return nil, fmt.Errorf("Unable to find peer: %w", err)
+	}
+
+	s.config.ACMEReady[rr.Domain] = append(s.config.ACMEReady[rr.Domain], peer)
+
+	return req.Response(), nil
 }

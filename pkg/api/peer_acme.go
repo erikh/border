@@ -59,6 +59,7 @@ func (acr *ACMEChallengeResponse) Marshal() ([]byte, error) {
 
 type ACMEReadyRequest struct {
 	NonceValue []byte `json:"nonce"`
+	Peer       string `json:"peer"`
 	Domain     string `json:"domain"`
 }
 
