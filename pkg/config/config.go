@@ -31,6 +31,7 @@ var HashFunc = sha512.New
 type Config struct {
 	FilenamePrefix string                    `json:"-"` // prefix of filename to save to and read from
 	Publisher      *Peer                     `json:"-"` // peer that's the publisher
+	Me             *Peer                     `json:"-"` // this peer
 	ACMEChallenges map[string]acme.Challenge `json:"-"` // domain -> peers map of challenge payloads
 	ACMEReady      map[string][]*Peer        `json:"-"` // domain -> peers map of ready peers for challenge
 

@@ -92,6 +92,7 @@ func (s *Server) handleACMEServe(req api.Request) (api.Message, error) {
 
 	for _, peer := range s.config.Peers {
 		var found bool
+
 		for _, p := range peers {
 			if peer.Name() == p.Name() {
 				found = true

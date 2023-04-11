@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/erikh/border/pkg/acmekit"
+	"github.com/erikh/border/pkg/acmekit/solvers"
 	"github.com/erikh/border/pkg/api"
 	"github.com/erikh/border/pkg/config"
 	"github.com/erikh/border/pkg/controlclient"
@@ -46,6 +47,8 @@ func (s *Server) Launch(peerName string, c *config.Config) error {
 	if err != nil {
 		return fmt.Errorf("Could not find the name of this peer: %q: %w", peerName, err)
 	}
+
+	c.Me = peer
 
 	// NOTE the control server must start before the balancers. The CS is used in
 	// ACME challenges, which happen at LB boot.
@@ -220,11 +223,11 @@ func (s *Server) createBalancers(peerName string, c *config.Config) ([]*lb.Balan
 
 					switch lbRecord.ACME.ChallengeType {
 					case acme.ChallengeTypeDNS01:
-						solver = c.DNSSolver(rec.Name)
+						solver = solvers.DNSSolver(c, rec.Name)
 					case acme.ChallengeTypeTLSALPN01:
-						solver = c.ALPNSolver(rec.Name)
+						solver = solvers.ALPNSolver(c, rec.Name)
 					case acme.ChallengeTypeHTTP01:
-						solver = c.HTTPSolver(rec.Name)
+						solver = solvers.HTTPSolver(c, rec.Name)
 					default:
 						return nil, fmt.Errorf("%q is not a valid ACME challenge type", lbRecord.ACME.ChallengeType)
 					}
