@@ -26,7 +26,12 @@ func (dns *ACMEDNSSolver) CleanUp(ctx context.Context, chal acme.Challenge) erro
 }
 
 func (dns *ACMEDNSSolver) Wait(ctx context.Context, chal acme.Challenge) error {
-	return controlclient.ACMEWaitForReady(ctx, dns.config, dns.domain, chal)
+	dns.config.ACMECacheChallenge(dns.domain, chal)
+	return controlclient.ACMEWaitForReady(ctx, dns.config, dns.domain)
+}
+
+func (dns *ACMEDNSSolver) PresentCached(ctx context.Context) error {
+	return controlclient.ACMEWaitForReady(ctx, dns.config, dns.domain)
 }
 
 type ACMEALPNSolver struct {
@@ -38,16 +43,21 @@ func ALPNSolver(c *config.Config, domain string) *ACMEALPNSolver {
 	return &ACMEALPNSolver{domain: domain, config: c}
 }
 
-func (dns *ACMEALPNSolver) Present(ctx context.Context, chal acme.Challenge) error {
+func (alpn *ACMEALPNSolver) Present(ctx context.Context, chal acme.Challenge) error {
 	return nil
 }
 
-func (dns *ACMEALPNSolver) CleanUp(ctx context.Context, chal acme.Challenge) error {
+func (alpn *ACMEALPNSolver) CleanUp(ctx context.Context, chal acme.Challenge) error {
 	return nil
 }
 
-func (dns *ACMEALPNSolver) Wait(ctx context.Context, chal acme.Challenge) error {
-	return controlclient.ACMEWaitForReady(ctx, dns.config, dns.domain, chal)
+func (alpn *ACMEALPNSolver) Wait(ctx context.Context, chal acme.Challenge) error {
+	alpn.config.ACMECacheChallenge(alpn.domain, chal)
+	return controlclient.ACMEWaitForReady(ctx, alpn.config, alpn.domain)
+}
+
+func (alpn *ACMEALPNSolver) PresentCached(ctx context.Context) error {
+	return controlclient.ACMEWaitForReady(ctx, alpn.config, alpn.domain)
 }
 
 type ACMEHTTPSolver struct {
@@ -59,14 +69,19 @@ func HTTPSolver(c *config.Config, domain string) *ACMEHTTPSolver {
 	return &ACMEHTTPSolver{domain: domain, config: c}
 }
 
-func (dns *ACMEHTTPSolver) Present(ctx context.Context, chal acme.Challenge) error {
+func (hs *ACMEHTTPSolver) Present(ctx context.Context, chal acme.Challenge) error {
 	return nil
 }
 
-func (dns *ACMEHTTPSolver) CleanUp(ctx context.Context, chal acme.Challenge) error {
+func (hs *ACMEHTTPSolver) CleanUp(ctx context.Context, chal acme.Challenge) error {
 	return nil
 }
 
-func (dns *ACMEHTTPSolver) Wait(ctx context.Context, chal acme.Challenge) error {
-	return controlclient.ACMEWaitForReady(ctx, dns.config, dns.domain, chal)
+func (hs *ACMEHTTPSolver) Wait(ctx context.Context, chal acme.Challenge) error {
+	hs.config.ACMECacheChallenge(hs.domain, chal)
+	return controlclient.ACMEWaitForReady(ctx, hs.config, hs.domain)
+}
+
+func (hs *ACMEHTTPSolver) PresentCached(ctx context.Context) error {
+	return controlclient.ACMEWaitForReady(ctx, hs.config, hs.domain)
 }

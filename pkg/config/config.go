@@ -162,6 +162,12 @@ func (c *Config) AddPeer(peer *Peer) {
 	c.Peers = append(c.Peers, peer)
 }
 
+func (c *Config) GetMe() *Peer {
+	EditMutex.RLock()
+	defer EditMutex.RUnlock()
+	return c.Me
+}
+
 func (c *Config) GetPublisher() *Peer {
 	EditMutex.RLock()
 	defer EditMutex.RUnlock()
@@ -172,4 +178,10 @@ func (c *Config) SetPublisher(publisher *Peer) {
 	EditMutex.Lock()
 	defer EditMutex.Unlock()
 	c.Publisher = publisher
+}
+
+func (c *Config) ACMECacheChallenge(domain string, chal acme.Challenge) {
+	EditMutex.Lock()
+	defer EditMutex.Unlock()
+	c.ACMEChallenges[domain] = chal
 }

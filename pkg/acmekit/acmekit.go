@@ -16,6 +16,13 @@ import (
 	"go.uber.org/zap"
 )
 
+var ErrNoCertificate = errors.New("No certificate found")
+
+type ClusterSolver interface {
+	acmez.Solver
+	PresentCached(ctx context.Context) error
+}
+
 type Solvers map[string]acmez.Solver
 
 type Certificate struct {
@@ -136,9 +143,9 @@ func (ap *ACMEParams) CreateAccount(ctx context.Context) error {
 // GetNewCertificate generates a private key, gets a client, and attempts to
 // obtain a certificate. It will overwrite any existing certificate. If there
 // is no account, it will fail.
-func (ap *ACMEParams) GetNewCertificate(ctx context.Context, domain string, solvers Solvers) error {
-	if len(solvers) == 0 {
-		return errors.New("No supplied ACME solvers")
+func (ap *ACMEParams) GetNewCertificate(ctx context.Context, domain string, solutionType string, solver ClusterSolver) error {
+	if solver == nil {
+		return errors.New("No supplied ACME solver")
 	}
 
 	valid, err := ap.HasValidAccount(ctx)
@@ -155,7 +162,7 @@ func (ap *ACMEParams) GetNewCertificate(ctx context.Context, domain string, solv
 		return err
 	}
 
-	client, err := ap.makeClient(solvers)
+	client, err := ap.makeClient(Solvers{solutionType: solver})
 	if err != nil {
 		return fmt.Errorf("Error while making ACME client: %w", err)
 	}
@@ -181,12 +188,12 @@ func (ap *ACMEParams) GetNewCertificate(ctx context.Context, domain string, solv
 // attempt to retrieve a new certificate.
 //
 // It currently (FIXME) does not attempt to see if a certificate is expired.
-func (ap *ACMEParams) GetCertificate(ctx context.Context, domain string, solvers Solvers) (*Certificate, error) {
+func (ap *ACMEParams) GetCachedCertificate(ctx context.Context, domain string, solver ClusterSolver) (*Certificate, error) {
 	if ap.Account.Certificates != nil && ap.Account.Certificates[domain] != nil {
 		return ap.Account.Certificates[domain], nil
 	}
 
-	if err := ap.GetNewCertificate(ctx, domain, solvers); err != nil {
+	if err := solver.PresentCached(ctx); err != nil {
 		return nil, err
 	}
 

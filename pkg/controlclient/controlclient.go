@@ -17,7 +17,6 @@ import (
 	"github.com/erikh/border/pkg/josekit"
 	"github.com/ghodss/yaml"
 	"github.com/go-jose/go-jose/v3"
-	"github.com/mholt/acmez/acme"
 	"github.com/sirupsen/logrus"
 )
 
@@ -202,11 +201,86 @@ func (c *Client) Exchange(msg api.Request, peer bool) (api.Message, error) {
 	return res, nil
 }
 
+func ACMEPublisherWaitForReady(ctx context.Context, conf *config.Config, domain string) error {
+	// wait for the cluster to be ready
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+
+		config.EditMutex.RLock()
+		peers, ok := conf.ACMEReady[domain]
+		if ok {
+			for _, peer := range conf.Peers {
+				var found bool
+
+				for _, p := range peers {
+					if p.Name() == peer.Name() {
+						found = true
+						break
+					}
+				}
+
+				if found {
+					return nil
+				} else {
+					break
+				}
+			}
+		}
+		config.EditMutex.RUnlock()
+	}
+}
+
+// ACMEFollowerWaitForReady
+func ACMEFollowerWaitForReady(ctx context.Context, conf *config.Config, domain string) error {
+requestRetry:
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	default:
+	}
+
+	client := FromPeer(conf.GetPublisher())
+
+	resp, err := client.Exchange(&api.ACMEChallengeRequest{Domain: domain}, true)
+	if err != nil {
+		logrus.Errorf("Could not request ACME challenge from publisher: %v", err)
+		time.Sleep(time.Second)
+		goto requestRetry
+	}
+
+	conf.ACMECacheChallenge(domain, resp.(*api.ACMEChallengeResponse).Challenge)
+
+	if _, err := client.Exchange(&api.ACMEReadyRequest{Peer: conf.GetMe().Name(), Domain: domain}, true); err != nil {
+		logrus.Errorf("Unable to report to publisher that we are ready: %v", err)
+		time.Sleep(time.Second)
+		goto requestRetry
+	}
+
+	for {
+		resp, err = client.Exchange(&api.ACMEServeRequest{Domain: domain}, true)
+		if err != nil {
+			logrus.Errorf("Unable to get ready state from publisher: %v", err)
+			time.Sleep(time.Second)
+			goto requestRetry // do not try this loop again, start over completely, in case the publisher changed
+		}
+
+		if resp.(*api.ACMEServeResponse).Ok {
+			return nil
+		}
+
+		time.Sleep(time.Second)
+	}
+}
+
 // ACMEWaitForReady encapsulates the waiting loop solvers will use to determine
 // when the entire cluster is ready to serve a challenge.
 //
 // It is not pretty.
-func ACMEWaitForReady(ctx context.Context, conf *config.Config, domain string, chal acme.Challenge) error {
+func ACMEWaitForReady(ctx context.Context, conf *config.Config, domain string) error {
 retry:
 	select {
 	case <-ctx.Done():
@@ -214,78 +288,14 @@ retry:
 	default:
 	}
 
-	config.EditMutex.RLock()
-	if conf.Publisher == nil {
+	if conf.GetPublisher() == nil {
 		time.Sleep(time.Second)
-		config.EditMutex.RUnlock()
 		goto retry
 	}
 
-	if conf.Publisher.Name() == conf.Me.Name() {
-		config.EditMutex.RUnlock()
-		config.EditMutex.Lock()
-		conf.ACMEChallenges[domain] = chal
-		config.EditMutex.Unlock()
-
-		for {
-			config.EditMutex.RLock()
-			peers, ok := conf.ACMEReady[domain]
-			if ok {
-				for _, peer := range conf.Peers {
-					var found bool
-
-					for _, p := range peers {
-						if p.Name() == peer.Name() {
-							found = true
-							break
-						}
-					}
-
-					if found {
-						return nil
-					} else {
-						break
-					}
-				}
-			}
-			config.EditMutex.RUnlock()
-		}
+	if conf.GetPublisher().Name() == conf.GetMe().Name() {
+		return ACMEPublisherWaitForReady(ctx, conf, domain)
 	} else {
-		config.EditMutex.RUnlock()
-	requestRetry:
-		config.EditMutex.RLock() // gotta relock in the loop
-		client := FromPeer(conf.Publisher)
-		config.EditMutex.RUnlock()
-		resp, err := client.Exchange(&api.ACMEChallengeRequest{Domain: domain}, true)
-		if err != nil {
-			logrus.Errorf("Could not request ACME challenge from publisher: %v", err)
-			time.Sleep(time.Second)
-			goto requestRetry
-		}
-
-		config.EditMutex.Lock()
-		conf.ACMEChallenges[domain] = resp.(*api.ACMEChallengeResponse).Challenge
-		config.EditMutex.Unlock()
-
-		if _, err := client.Exchange(&api.ACMEReadyRequest{Peer: conf.Me.Name(), Domain: domain}, true); err != nil {
-			logrus.Errorf("Unable to report to publisher that we are ready: %v", err)
-			time.Sleep(time.Second)
-			goto requestRetry
-		}
-
-		for {
-			resp, err = client.Exchange(&api.ACMEServeRequest{Domain: domain}, true)
-			if err != nil {
-				logrus.Errorf("Unable to get ready state from publisher: %v", err)
-				time.Sleep(time.Second)
-				goto requestRetry // do not try this loop again, start over completely, in case the publisher changed
-			}
-
-			if resp.(*api.ACMEServeResponse).Ok {
-				return nil
-			}
-
-			time.Sleep(time.Second)
-		}
+		return ACMEFollowerWaitForReady(ctx, conf, domain)
 	}
 }

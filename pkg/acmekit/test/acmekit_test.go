@@ -172,6 +172,10 @@ func (hs *httpSolver) CleanUp(ctx context.Context, chal acme.Challenge) error {
 	return hs.srv.Shutdown(ctx)
 }
 
+func (hs *httpSolver) PresentCached(ctx context.Context) error {
+	return nil
+}
+
 func TestACMEAccount(t *testing.T) {
 	createPebble(t)
 	createACMEAccount(t)
@@ -181,11 +185,13 @@ func TestACMECreateCertificate(t *testing.T) {
 	createPebble(t)
 	ap := createACMEAccount(t)
 
-	if err := ap.GetNewCertificate(context.Background(), Domain, nil); err == nil {
+	if err := ap.GetNewCertificate(context.Background(), Domain, "", nil); err == nil {
 		t.Fatal("Ran anyway without solvers")
 	}
 
-	if err := ap.GetNewCertificate(context.Background(), Domain, acmekit.Solvers{acme.ChallengeTypeHTTP01: &httpSolver{ap: ap, t: t}}); err != nil {
+	solver := &httpSolver{ap: ap, t: t}
+
+	if err := ap.GetNewCertificate(context.Background(), Domain, acme.ChallengeTypeHTTP01, solver); err != nil {
 		t.Fatal(err)
 	}
 
@@ -194,7 +200,7 @@ func TestACMECreateCertificate(t *testing.T) {
 	}
 
 	// obtain the certificate with no solvers. should return a valid cert.
-	cert, err := ap.GetCertificate(context.Background(), Domain, nil)
+	cert, err := ap.GetCachedCertificate(context.Background(), Domain, solver)
 	if err != nil {
 		t.Fatal(err)
 	}

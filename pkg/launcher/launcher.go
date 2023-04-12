@@ -22,7 +22,6 @@ import (
 	"github.com/erikh/border/pkg/healthcheck"
 	"github.com/erikh/border/pkg/lb"
 	"github.com/erikh/go-hashchain"
-	"github.com/mholt/acmez"
 	"github.com/mholt/acmez/acme"
 	"github.com/sirupsen/logrus"
 )
@@ -219,7 +218,7 @@ func (s *Server) createBalancers(peerName string, c *config.Config) ([]*lb.Balan
 				var tls *lb.TLSBalancerConfig
 
 				if lbRecord.ACME != nil {
-					var solver acmez.Solver
+					var solver acmekit.ClusterSolver
 
 					// FIXME if we use the solvers for all the requests, then many calls
 					// that will be discarded will be made to LE, which will undoubtedly
@@ -240,7 +239,13 @@ func (s *Server) createBalancers(peerName string, c *config.Config) ([]*lb.Balan
 						return nil, fmt.Errorf("%q is not a valid ACME challenge type", lbRecord.ACME.ChallengeType)
 					}
 
-					cert, err := c.ACME.GetCertificate(context.Background(), rec.Name, acmekit.Solvers{lbRecord.ACME.ChallengeType: solver})
+					if c.GetMe().Name() == c.GetPublisher().Name() {
+						if err := c.ACME.GetNewCertificate(context.Background(), rec.Name, lbRecord.ACME.ChallengeType, solver); err != nil {
+							return nil, fmt.Errorf("Error obtaining ACME certificate: %w", err)
+						}
+					}
+
+					cert, err := c.ACME.GetCachedCertificate(context.Background(), rec.Name, solver)
 					if err != nil {
 						return nil, fmt.Errorf("Error obtaining ACME certificate: %w", err)
 					}
