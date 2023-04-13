@@ -29,7 +29,6 @@ type Server struct {
 	listener net.Listener
 	config   *config.Config
 
-	me       *config.Peer
 	bootTime time.Time
 
 	debugPayload bool
@@ -75,7 +74,6 @@ func Start(config *config.Config, me *config.Peer, listenSpec string, expireTime
 		cancelSupervision: cancel,
 		expireTime:        expireTime,
 		bootTime:          time.Now(),
-		me:                me,
 		debugPayload:      debug && os.Getenv("DEBUG_LOG_PAYLOAD") != "",
 	}
 
@@ -180,16 +178,16 @@ func (s *Server) configureMux() *http.ServeMux {
 	s.makeHandlerFunc(mux, http.MethodPut, &api.IdentifyPublisherRequest{}, s.config.AuthKey, s.handleIdentifyPublisher)
 
 	// peer to peer client methods
-	s.makeHandlerFunc(mux, http.MethodGet, &api.PeerNonceRequest{}, s.me.Key, s.handleNonce)
-	s.makeHandlerFunc(mux, http.MethodPut, &api.UptimeRequest{}, s.me.Key, s.handleUptime)
-	s.makeHandlerFunc(mux, http.MethodPut, &api.PingRequest{}, s.me.Key, s.handlePing)
-	s.makeHandlerFunc(mux, http.MethodPut, &api.ConfigChainRequest{}, s.me.Key, s.handleConfigChain)
-	s.makeHandlerFunc(mux, http.MethodPut, &api.ConfigFetchRequest{}, s.me.Key, s.handleConfigFetch)
+	s.makeHandlerFunc(mux, http.MethodGet, &api.PeerNonceRequest{}, s.config.GetMe().Key, s.handleNonce)
+	s.makeHandlerFunc(mux, http.MethodPut, &api.UptimeRequest{}, s.config.GetMe().Key, s.handleUptime)
+	s.makeHandlerFunc(mux, http.MethodPut, &api.PingRequest{}, s.config.GetMe().Key, s.handlePing)
+	s.makeHandlerFunc(mux, http.MethodPut, &api.ConfigChainRequest{}, s.config.GetMe().Key, s.handleConfigChain)
+	s.makeHandlerFunc(mux, http.MethodPut, &api.ConfigFetchRequest{}, s.config.GetMe().Key, s.handleConfigFetch)
 
 	// peer to peer ACME methods
-	s.makeHandlerFunc(mux, http.MethodPut, &api.ACMEChallengeRequest{}, s.me.Key, s.handleACMEChallenge)
-	s.makeHandlerFunc(mux, http.MethodPut, &api.ACMEReadyRequest{}, s.me.Key, s.handleACMEReady)
-	s.makeHandlerFunc(mux, http.MethodPut, &api.ACMEServeRequest{}, s.me.Key, s.handleACMEServe)
+	s.makeHandlerFunc(mux, http.MethodPut, &api.ACMEChallengeRequest{}, s.config.GetMe().Key, s.handleACMEChallenge)
+	s.makeHandlerFunc(mux, http.MethodPut, &api.ACMEReadyRequest{}, s.config.GetMe().Key, s.handleACMEReady)
+	s.makeHandlerFunc(mux, http.MethodPut, &api.ACMEServeRequest{}, s.config.GetMe().Key, s.handleACMEServe)
 
 	return mux
 }

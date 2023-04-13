@@ -41,6 +41,7 @@ func makeConfig(t *testing.T) *config.Config {
 		Key: jwk,
 		IPs: []net.IP{net.ParseIP("127.0.0.1")},
 	}}
+	c.Me = c.Peers[0]
 	c.FilenamePrefix = filepath.Join(dir, "config")
 	c.AuthKey = jwk
 

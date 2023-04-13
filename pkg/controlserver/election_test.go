@@ -46,6 +46,7 @@ func makeMultiPeerConfig(t *testing.T, peers uint) *config.Config {
 
 	c := config.New(hashchain.New(nil))
 
+	c.Me = peerList[0]
 	c.Peers = peerList
 	c.FilenamePrefix = filepath.Join(dir, "config")
 	c.AuthKey = authKey
