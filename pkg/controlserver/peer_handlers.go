@@ -35,12 +35,12 @@ func (s *Server) handleConfigFetch(req api.Request) (api.Message, error) {
 func (s *Server) handleACMEChallenge(req api.Request) (api.Message, error) {
 	resp := req.Response().(*api.ACMEChallengeResponse)
 
-	config.EditMutex.RLock() // ugly
-	defer config.EditMutex.RUnlock()
-
-	if s.config.Publisher == nil || s.config.Publisher.Name() != s.me.Name() {
+	if s.config.GetPublisher() == nil || s.config.GetPublisher().Name() != s.config.GetMe().Name() {
 		return nil, fmt.Errorf("This node is not the publisher, does not possess ACME challenge")
 	}
+
+	config.EditMutex.RLock() // ugly
+	defer config.EditMutex.RUnlock()
 
 	chal, ok := s.config.ACMEChallenges[req.(*api.ACMEChallengeRequest).Domain]
 	if !ok {
@@ -78,14 +78,15 @@ func (s *Server) handleACMEServe(req api.Request) (api.Message, error) {
 	// NOTE resp.Ok will be false by default, per golang rules
 	resp := req.Response().(*api.ACMEServeResponse)
 
-	config.EditMutex.RLock() // ugly
-	defer config.EditMutex.RUnlock()
-
-	if s.config.Publisher == nil || s.config.Publisher.Name() != s.me.Name() {
+	// FIXME this should probably just be a config method e.g. "IAmPublisher()"
+	if s.config.GetPublisher() == nil || s.config.GetPublisher().Name() != s.config.GetMe().Name() {
 		return nil, fmt.Errorf("This node is not the publisher, does not possess ACME challenge")
 	}
 
-	peers, ok := s.config.ACMEReady[req.(*api.ACMEChallengeRequest).Domain]
+	config.EditMutex.RLock()
+	defer config.EditMutex.RUnlock()
+
+	peers, ok := s.config.ACMEReady[req.(*api.ACMEServeRequest).Domain]
 	if !ok {
 		return resp, nil
 	}
@@ -106,5 +107,25 @@ func (s *Server) handleACMEServe(req api.Request) (api.Message, error) {
 	}
 
 	resp.Ok = true
+	return resp, nil
+}
+
+func (s *Server) handleACMEChallengeComplete(req api.Request) (api.Message, error) {
+	resp := req.Response().(*api.ACMEChallengeCompleteResponse)
+
+	if s.config.GetPublisher() == nil || s.config.GetPublisher().Name() != s.config.GetMe().Name() {
+		return nil, fmt.Errorf("This node is not the publisher, does not possess ACME challenge")
+	}
+
+	cert, ok := s.config.ACME.Account.Certificates[req.(*api.ACMEChallengeCompleteRequest).Domain]
+	if !ok {
+		// ok is already false
+		return resp, nil
+	}
+
+	resp.Chain = cert.Chain
+	resp.PrivateKey = cert.PrivateKey
+	resp.Ok = true
+
 	return resp, nil
 }

@@ -12,6 +12,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/erikh/border/pkg/acmekit"
 	"github.com/erikh/border/pkg/api"
 	"github.com/erikh/border/pkg/config"
 	"github.com/erikh/border/pkg/josekit"
@@ -201,8 +202,11 @@ func (c *Client) Exchange(msg api.Request, peer bool) (api.Message, error) {
 	return res, nil
 }
 
+// ACMEPublisherWaitForReady is the publisher function to wait to serve the
+// challenge. It caches the challenge, and then waits for all peers to report
+// that they're ready before serving the challenge, lest it be captured
+// prematurely.
 func ACMEPublisherWaitForReady(ctx context.Context, conf *config.Config, domain string) error {
-	// wait for the cluster to be ready
 	for {
 		select {
 		case <-ctx.Done():
@@ -234,7 +238,9 @@ func ACMEPublisherWaitForReady(ctx context.Context, conf *config.Config, domain 
 	}
 }
 
-// ACMEFollowerWaitForReady
+// ACMEFollowerWaitForReady is the follower (aka, everybody but the publisher)
+// method for waiting for a challenge. It requests the challenge data, reports
+// that it's ready to serve, and waits for the signal to serve the data.
 func ACMEFollowerWaitForReady(ctx context.Context, conf *config.Config, domain string) error {
 requestRetry:
 	select {
@@ -273,6 +279,45 @@ requestRetry:
 		}
 
 		time.Sleep(time.Second)
+	}
+}
+
+// ACMEFollowerCaptureCert gets the cert from the publisher, and then indicates
+// that the challenge endpoint can be torn down.
+func ACMEFollowerCaptureCert(ctx context.Context, conf *config.Config, domain string) error {
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+
+		client := FromPeer(conf.GetPublisher())
+
+		resp, err := client.Exchange(&api.ACMEChallengeCompleteRequest{Domain: domain}, true)
+		if err != nil {
+			logrus.Errorf("Unable to get completed state from publisher: %v", err)
+			time.Sleep(time.Second)
+			continue
+		}
+
+		complete := resp.(*api.ACMEChallengeCompleteResponse)
+
+		if !complete.Ok {
+			logrus.Warn("Publisher has not completed ACME challenge, retrying in a second")
+			time.Sleep(time.Second)
+			continue
+		}
+
+		config.EditMutex.Lock()
+		defer config.EditMutex.Unlock()
+
+		conf.ACME.Account.Certificates[domain] = &acmekit.Certificate{
+			Chain:      complete.Chain,
+			PrivateKey: complete.PrivateKey,
+		}
+
+		return nil
 	}
 }
 
