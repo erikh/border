@@ -258,7 +258,7 @@ requestRetry:
 		goto requestRetry
 	}
 
-	conf.ACMECacheChallenge(domain, resp.(*api.ACMEChallengeResponse).Challenge)
+	conf.ACMESetChallenge(domain, resp.(*api.ACMEChallengeResponse).Challenge)
 
 	if _, err := client.Exchange(&api.ACMEReadyRequest{Peer: conf.GetMe().Name(), Domain: domain}, true); err != nil {
 		logrus.Errorf("Unable to report to publisher that we are ready: %v", err)
@@ -309,14 +309,12 @@ func ACMEFollowerCaptureCert(ctx context.Context, conf *config.Config, domain st
 			continue
 		}
 
-		config.EditMutex.Lock()
-		defer config.EditMutex.Unlock()
-
-		conf.ACME.Account.Certificates[domain] = &acmekit.Certificate{
+		conf.ACME.CacheCertificate(domain, &acmekit.Certificate{
 			Chain:      complete.Chain,
 			PrivateKey: complete.PrivateKey,
-		}
+		})
 
+		conf.ACMEDeleteChallenge(domain)
 		return nil
 	}
 }

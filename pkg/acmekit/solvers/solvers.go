@@ -26,7 +26,7 @@ func (dns *ACMEDNSSolver) CleanUp(ctx context.Context, chal acme.Challenge) erro
 }
 
 func (dns *ACMEDNSSolver) Wait(ctx context.Context, chal acme.Challenge) error {
-	dns.config.ACMECacheChallenge(dns.domain, chal)
+	dns.config.ACMESetChallenge(dns.domain, chal)
 	return controlclient.ACMEWaitForReady(ctx, dns.config, dns.domain)
 }
 
@@ -52,7 +52,7 @@ func (alpn *ACMEALPNSolver) CleanUp(ctx context.Context, chal acme.Challenge) er
 }
 
 func (alpn *ACMEALPNSolver) Wait(ctx context.Context, chal acme.Challenge) error {
-	alpn.config.ACMECacheChallenge(alpn.domain, chal)
+	alpn.config.ACMESetChallenge(alpn.domain, chal)
 	return controlclient.ACMEWaitForReady(ctx, alpn.config, alpn.domain)
 }
 
@@ -78,7 +78,7 @@ func (hs *ACMEHTTPSolver) CleanUp(ctx context.Context, chal acme.Challenge) erro
 }
 
 func (hs *ACMEHTTPSolver) Wait(ctx context.Context, chal acme.Challenge) error {
-	hs.config.ACMECacheChallenge(hs.domain, chal)
+	hs.config.ACMESetChallenge(hs.domain, chal)
 	return controlclient.ACMEWaitForReady(ctx, hs.config, hs.domain)
 }
 

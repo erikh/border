@@ -205,6 +205,6 @@ func TestACMECreateCertificate(t *testing.T) {
 	}
 
 	if cert == nil {
-		t.Fatal("cert was nil after cache")
+		t.Fatal("cert was nil after cache fetch")
 	}
 }

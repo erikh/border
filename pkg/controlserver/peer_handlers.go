@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/erikh/border/pkg/api"
-	"github.com/erikh/border/pkg/config"
 )
 
 func (s *Server) handlePing(req api.Request) (api.Message, error) {
@@ -39,10 +38,7 @@ func (s *Server) handleACMEChallenge(req api.Request) (api.Message, error) {
 		return nil, fmt.Errorf("This node is not the publisher, does not possess ACME challenge")
 	}
 
-	config.EditMutex.RLock() // ugly
-	defer config.EditMutex.RUnlock()
-
-	chal, ok := s.config.ACMEChallenges[req.(*api.ACMEChallengeRequest).Domain]
+	chal, ok := s.config.ACMEGetChallenge(req.(*api.ACMEChallengeRequest).Domain)
 	if !ok {
 		return nil, fmt.Errorf("ACME challenge is not ready to be served")
 	}
@@ -66,11 +62,7 @@ func (s *Server) handleACMEReady(req api.Request) (api.Message, error) {
 		return nil, fmt.Errorf("Unable to find peer: %w", err)
 	}
 
-	config.EditMutex.Lock() // ugly
-	defer config.EditMutex.Unlock()
-
-	s.config.ACMEReady[rr.Domain] = append(s.config.ACMEReady[rr.Domain], peer)
-
+	s.config.ACMESetReady(rr.Domain, peer)
 	return req.Response(), nil
 }
 
@@ -82,15 +74,7 @@ func (s *Server) handleACMEServe(req api.Request) (api.Message, error) {
 		return nil, fmt.Errorf("This node is not the publisher, does not possess ACME challenge")
 	}
 
-	config.EditMutex.RLock()
-	defer config.EditMutex.RUnlock()
-
-	peers, ok := s.config.ACMEReady[req.(*api.ACMEServeRequest).Domain]
-	if !ok {
-		return resp, nil
-	}
-
-	resp.Ok = s.config.AllPeersPresent(peers)
+	resp.Ok = s.config.AllPeersPresent(s.config.ACMEGetReady(req.(*api.ACMEServeRequest).Domain))
 	return resp, nil
 }
 

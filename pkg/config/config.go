@@ -208,9 +208,3 @@ func (c *Config) AllPeersPresent(peers []*Peer) bool {
 
 	return true
 }
-
-func (c *Config) ACMECacheChallenge(domain string, chal acme.Challenge) {
-	EditMutex.Lock()
-	defer EditMutex.Unlock()
-	c.ACMEChallenges[domain] = chal
-}
