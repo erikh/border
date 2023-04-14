@@ -35,7 +35,7 @@ func (s *Server) handleConfigFetch(req api.Request) (api.Message, error) {
 func (s *Server) handleACMEChallenge(req api.Request) (api.Message, error) {
 	resp := req.Response().(*api.ACMEChallengeResponse)
 
-	if s.config.GetPublisher() == nil || s.config.GetPublisher().Name() != s.config.GetMe().Name() {
+	if !s.config.IAmPublisher() {
 		return nil, fmt.Errorf("This node is not the publisher, does not possess ACME challenge")
 	}
 
@@ -78,8 +78,7 @@ func (s *Server) handleACMEServe(req api.Request) (api.Message, error) {
 	// NOTE resp.Ok will be false by default, per golang rules
 	resp := req.Response().(*api.ACMEServeResponse)
 
-	// FIXME this should probably just be a config method e.g. "IAmPublisher()"
-	if s.config.GetPublisher() == nil || s.config.GetPublisher().Name() != s.config.GetMe().Name() {
+	if !s.config.IAmPublisher() {
 		return nil, fmt.Errorf("This node is not the publisher, does not possess ACME challenge")
 	}
 
@@ -91,34 +90,19 @@ func (s *Server) handleACMEServe(req api.Request) (api.Message, error) {
 		return resp, nil
 	}
 
-	for _, peer := range s.config.Peers {
-		var found bool
-
-		for _, p := range peers {
-			if peer.Name() == p.Name() {
-				found = true
-				break
-			}
-		}
-
-		if !found {
-			return resp, nil
-		}
-	}
-
-	resp.Ok = true
+	resp.Ok = s.config.AllPeersPresent(peers)
 	return resp, nil
 }
 
 func (s *Server) handleACMEChallengeComplete(req api.Request) (api.Message, error) {
 	resp := req.Response().(*api.ACMEChallengeCompleteResponse)
 
-	if s.config.GetPublisher() == nil || s.config.GetPublisher().Name() != s.config.GetMe().Name() {
+	if !s.config.IAmPublisher() {
 		return nil, fmt.Errorf("This node is not the publisher, does not possess ACME challenge")
 	}
 
-	cert, ok := s.config.ACME.Account.Certificates[req.(*api.ACMEChallengeCompleteRequest).Domain]
-	if !ok {
+	cert := s.config.ACME.GetCachedCertificate(req.(*api.ACMEChallengeCompleteRequest).Domain)
+	if cert == nil {
 		// ok is already false
 		return resp, nil
 	}

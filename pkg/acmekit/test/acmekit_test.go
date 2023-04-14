@@ -199,8 +199,7 @@ func TestACMECreateCertificate(t *testing.T) {
 		t.Fatal("Certificate was not cached")
 	}
 
-	// obtain the certificate with no solvers. should return a valid cert.
-	cert, err := ap.GetCachedCertificate(context.Background(), Domain, solver)
+	cert, err := ap.FetchCachedCertificate(context.Background(), Domain, solver)
 	if err != nil {
 		t.Fatal(err)
 	}

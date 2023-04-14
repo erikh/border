@@ -239,13 +239,13 @@ func (s *Server) createBalancers(peerName string, c *config.Config) ([]*lb.Balan
 						return nil, fmt.Errorf("%q is not a valid ACME challenge type", lbRecord.ACME.ChallengeType)
 					}
 
-					if c.GetMe().Name() == c.GetPublisher().Name() {
+					if c.IAmPublisher() {
 						if err := c.ACME.GetNewCertificate(context.Background(), rec.Name, lbRecord.ACME.ChallengeType, solver); err != nil {
 							return nil, fmt.Errorf("Error obtaining ACME certificate: %w", err)
 						}
 					}
 
-					cert, err := c.ACME.GetCachedCertificate(context.Background(), rec.Name, solver)
+					cert, err := c.ACME.FetchCachedCertificate(context.Background(), rec.Name, solver)
 					if err != nil {
 						return nil, fmt.Errorf("Error obtaining ACME certificate: %w", err)
 					}

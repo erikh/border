@@ -180,6 +180,35 @@ func (c *Config) SetPublisher(publisher *Peer) {
 	c.Publisher = publisher
 }
 
+func (c *Config) IAmPublisher() bool {
+	EditMutex.RLock()
+	defer EditMutex.RUnlock()
+
+	return c.Publisher != nil && c.Me.Name() == c.Publisher.Name()
+}
+
+func (c *Config) AllPeersPresent(peers []*Peer) bool {
+	EditMutex.RLock()
+	defer EditMutex.RUnlock()
+
+	for _, peer := range c.Peers {
+		var found bool
+
+		for _, p := range peers {
+			if peer.Name() == p.Name() {
+				found = true
+				break
+			}
+		}
+
+		if !found {
+			return false
+		}
+	}
+
+	return true
+}
+
 func (c *Config) ACMECacheChallenge(domain string, chal acme.Challenge) {
 	EditMutex.Lock()
 	defer EditMutex.Unlock()

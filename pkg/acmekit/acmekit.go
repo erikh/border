@@ -172,30 +172,46 @@ func (ap *ACMEParams) GetNewCertificate(ctx context.Context, domain string, solu
 		return fmt.Errorf("Error obtaining certificate from ACME directory: %w", err)
 	}
 
+	cert := &Certificate{
+		Chain:      certs[0].ChainPEM,
+		PrivateKey: marshalledPKey,
+	}
+
+	ap.CacheCertificate(domain, cert)
+	return nil
+}
+
+// CacheCertificate stores a certificate in the cache.
+func (ap *ACMEParams) CacheCertificate(domain string, cert *Certificate) {
 	if ap.Account.Certificates == nil {
 		ap.Account.Certificates = map[string]*Certificate{}
 	}
 
-	ap.Account.Certificates[domain] = &Certificate{
-		Chain:      certs[0].ChainPEM,
-		PrivateKey: marshalledPKey,
+	ap.Account.Certificates[domain] = cert
+}
+
+// GetCachedCertificate simply ensures the certificate is already cached and
+// returns it, otherwise it returns nil.
+func (ap *ACMEParams) GetCachedCertificate(domain string) *Certificate {
+	if ap.Account.Certificates != nil {
+		return ap.Account.Certificates[domain]
 	}
 
 	return nil
 }
 
-// GetCertificate returns a certificate if it already has one, otherwise will
+// FetchCachedCertificate a certificate if it already has one, otherwise will
 // attempt to retrieve a new certificate.
 //
 // It currently (FIXME) does not attempt to see if a certificate is expired.
-func (ap *ACMEParams) GetCachedCertificate(ctx context.Context, domain string, solver ClusterSolver) (*Certificate, error) {
-	if ap.Account.Certificates != nil && ap.Account.Certificates[domain] != nil {
-		return ap.Account.Certificates[domain], nil
+func (ap *ACMEParams) FetchCachedCertificate(ctx context.Context, domain string, solver ClusterSolver) (*Certificate, error) {
+	if cert := ap.GetCachedCertificate(domain); cert != nil {
+		return cert, nil
 	}
 
 	if err := solver.PresentCached(ctx); err != nil {
 		return nil, err
 	}
 
-	return ap.Account.Certificates[domain], nil
+	return ap.GetCachedCertificate(domain), nil
 }
