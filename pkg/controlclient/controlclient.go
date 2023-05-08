@@ -241,7 +241,7 @@ func ACMEPublisherWaitForReady(ctx context.Context, conf *config.Config, domain 
 // ACMEFollowerWaitForReady is the follower (aka, everybody but the publisher)
 // method for waiting for a challenge. It requests the challenge data, reports
 // that it's ready to serve, and waits for the signal to serve the data.
-func ACMEFollowerWaitForReady(ctx context.Context, conf *config.Config, domain string) error {
+func ACMEFollowerWaitForReady(ctx context.Context, conf *config.Config, domain string, solver acmekit.ClusterSolver) error {
 requestRetry:
 	select {
 	case <-ctx.Done():
@@ -257,8 +257,11 @@ requestRetry:
 		time.Sleep(time.Second)
 		goto requestRetry
 	}
-
-	conf.ACMESetChallenge(domain, resp.(*api.ACMEChallengeResponse).Challenge)
+	chal := resp.(*api.ACMEChallengeResponse).Challenge
+	conf.ACMESetChallenge(domain, chal)
+	if err := solver.Present(ctx, chal); err != nil {
+		return err
+	}
 
 	if _, err := client.Exchange(&api.ACMEReadyRequest{Peer: conf.GetMe().Name(), Domain: domain}, true); err != nil {
 		logrus.Errorf("Unable to report to publisher that we are ready: %v", err)
@@ -284,7 +287,14 @@ requestRetry:
 
 // ACMEFollowerCaptureCert gets the cert from the publisher, and then indicates
 // that the challenge endpoint can be torn down.
-func ACMEFollowerCaptureCert(ctx context.Context, conf *config.Config, domain string) error {
+func ACMEFollowerCaptureCert(ctx context.Context, conf *config.Config, domain string, solver acmekit.ClusterSolver) error {
+	chal, ok := conf.ACMEGetChallenge(domain)
+	if !ok {
+		return errors.New("Could not find challenge during capture of certificate")
+	}
+
+	defer solver.CleanUp(ctx, chal)
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -323,7 +333,7 @@ func ACMEFollowerCaptureCert(ctx context.Context, conf *config.Config, domain st
 // when the entire cluster is ready to serve a challenge.
 //
 // It is not pretty.
-func ACMEWaitForReady(ctx context.Context, conf *config.Config, domain string) error {
+func ACMEWaitForReady(ctx context.Context, conf *config.Config, domain string, solver acmekit.ClusterSolver) error {
 retry:
 	select {
 	case <-ctx.Done():
@@ -339,6 +349,6 @@ retry:
 	if conf.GetPublisher().Name() == conf.GetMe().Name() {
 		return ACMEPublisherWaitForReady(ctx, conf, domain)
 	} else {
-		return ACMEFollowerWaitForReady(ctx, conf, domain)
+		return ACMEFollowerWaitForReady(ctx, conf, domain, solver)
 	}
 }

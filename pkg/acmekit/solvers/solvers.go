@@ -5,6 +5,7 @@ import (
 
 	"github.com/erikh/border/pkg/config"
 	"github.com/erikh/border/pkg/controlclient"
+	"github.com/erikh/border/pkg/dnsconfig"
 	"github.com/mholt/acmez/acme"
 )
 
@@ -18,20 +19,41 @@ func DNSSolver(c *config.Config, domain string) *ACMEDNSSolver {
 }
 
 func (dns *ACMEDNSSolver) Present(ctx context.Context, chal acme.Challenge) error {
+	domainZone := dns.config.Zones[dns.domain]
+
+	domainZone.Records = append(domainZone.Records, &config.Record{
+		Type: dnsconfig.TypeTXT,
+		Name: chal.DNS01TXTRecordName(),
+		Value: &dnsconfig.TXT{
+			Value: []string{chal.DNS01KeyAuthorization()},
+		},
+	})
+
 	return nil
 }
 
 func (dns *ACMEDNSSolver) CleanUp(ctx context.Context, chal acme.Challenge) error {
+	records := dns.config.Zones[dns.domain].Records
+	newRecords := []*config.Record{}
+
+	for _, rec := range records {
+		if rec.Name != chal.DNS01TXTRecordName() {
+			newRecords = append(newRecords, rec)
+		}
+	}
+
+	dns.config.Zones[dns.domain].Records = newRecords
+
 	return nil
 }
 
 func (dns *ACMEDNSSolver) Wait(ctx context.Context, chal acme.Challenge) error {
 	dns.config.ACMESetChallenge(dns.domain, chal)
-	return controlclient.ACMEWaitForReady(ctx, dns.config, dns.domain)
+	return controlclient.ACMEWaitForReady(ctx, dns.config, dns.domain, dns)
 }
 
 func (dns *ACMEDNSSolver) PresentCached(ctx context.Context) error {
-	return controlclient.ACMEWaitForReady(ctx, dns.config, dns.domain)
+	return controlclient.ACMEWaitForReady(ctx, dns.config, dns.domain, dns)
 }
 
 type ACMEALPNSolver struct {
@@ -53,11 +75,11 @@ func (alpn *ACMEALPNSolver) CleanUp(ctx context.Context, chal acme.Challenge) er
 
 func (alpn *ACMEALPNSolver) Wait(ctx context.Context, chal acme.Challenge) error {
 	alpn.config.ACMESetChallenge(alpn.domain, chal)
-	return controlclient.ACMEWaitForReady(ctx, alpn.config, alpn.domain)
+	return controlclient.ACMEWaitForReady(ctx, alpn.config, alpn.domain, alpn)
 }
 
 func (alpn *ACMEALPNSolver) PresentCached(ctx context.Context) error {
-	return controlclient.ACMEWaitForReady(ctx, alpn.config, alpn.domain)
+	return controlclient.ACMEWaitForReady(ctx, alpn.config, alpn.domain, alpn)
 }
 
 type ACMEHTTPSolver struct {
@@ -79,9 +101,9 @@ func (hs *ACMEHTTPSolver) CleanUp(ctx context.Context, chal acme.Challenge) erro
 
 func (hs *ACMEHTTPSolver) Wait(ctx context.Context, chal acme.Challenge) error {
 	hs.config.ACMESetChallenge(hs.domain, chal)
-	return controlclient.ACMEWaitForReady(ctx, hs.config, hs.domain)
+	return controlclient.ACMEWaitForReady(ctx, hs.config, hs.domain, hs)
 }
 
 func (hs *ACMEHTTPSolver) PresentCached(ctx context.Context) error {
-	return controlclient.ACMEWaitForReady(ctx, hs.config, hs.domain)
+	return controlclient.ACMEWaitForReady(ctx, hs.config, hs.domain, hs)
 }
