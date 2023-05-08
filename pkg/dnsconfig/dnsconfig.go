@@ -5,13 +5,15 @@ import (
 	"time"
 
 	"github.com/erikh/border/pkg/healthcheck"
+	"github.com/mholt/acmez/acme"
 	"github.com/miekg/dns"
 	"github.com/sirupsen/logrus"
 )
 
 const (
-	TypeA  = "A"
-	TypeLB = "LB"
+	TypeA   = "A"
+	TypeLB  = "LB"
+	TypeTXT = "TXT"
 )
 
 // An attempt to normalize record management so it can be addressed in a
@@ -74,6 +76,23 @@ func (a *A) Convert(name string) []dns.RR {
 	return ret
 }
 
+type TXT struct {
+	Value []string `record:"value"`
+	TTL   uint32   `record:"ttl,optional"`
+}
+
+func (txt *TXT) Convert(name string) []dns.RR {
+	return []dns.RR{&dns.TXT{
+		Hdr: dns.RR_Header{
+			Name:   name,
+			Rrtype: dns.TypeA,
+			Class:  dns.ClassINET,
+			Ttl:    txt.TTL,
+		},
+		Txt: txt.Value,
+	}}
+}
+
 type NS struct {
 	Servers []string `record:"servers"`
 	TTL     uint32   `record:"ttl,optional"`
@@ -101,6 +120,11 @@ const (
 	DefaultMaxConnectionsPerAddress = 32768
 )
 
+type ACMELB struct {
+	ChallengeType    string          `record:"challenge_type"`
+	CurrentChallenge *acme.Challenge `record:"current_challenge"`
+}
+
 type TLSLB struct {
 	CACertificate []byte `record:"ca_certificate,optional"`
 	Certificate   []byte `record:"certificate"`
@@ -116,6 +140,7 @@ type LB struct {
 	ConnectionTimeout        time.Duration              `record:"connection_timeout,optional"`
 	TTL                      uint32                     `record:"ttl,optional"`
 	TLS                      *TLSLB                     `record:"tls,optional"`
+	ACME                     *ACMELB                    `record:"acme,optional"`
 	HealthCheck              []*healthcheck.HealthCheck `record:"healthcheck,optional"`
 }
 

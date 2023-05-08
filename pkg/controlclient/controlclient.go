@@ -12,11 +12,13 @@ import (
 	"os"
 	"time"
 
+	"github.com/erikh/border/pkg/acmekit"
 	"github.com/erikh/border/pkg/api"
 	"github.com/erikh/border/pkg/config"
 	"github.com/erikh/border/pkg/josekit"
 	"github.com/ghodss/yaml"
 	"github.com/go-jose/go-jose/v3"
+	"github.com/sirupsen/logrus"
 )
 
 var (
@@ -198,4 +200,155 @@ func (c *Client) Exchange(msg api.Request, peer bool) (api.Message, error) {
 	}
 
 	return res, nil
+}
+
+// ACMEPublisherWaitForReady is the publisher function to wait to serve the
+// challenge. It caches the challenge, and then waits for all peers to report
+// that they're ready before serving the challenge, lest it be captured
+// prematurely.
+func ACMEPublisherWaitForReady(ctx context.Context, conf *config.Config, domain string) error {
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+
+		config.EditMutex.RLock()
+		peers, ok := conf.ACMEReady[domain]
+		if ok {
+			for _, peer := range conf.Peers {
+				var found bool
+
+				for _, p := range peers {
+					if p.Name() == peer.Name() {
+						found = true
+						break
+					}
+				}
+
+				if found {
+					return nil
+				} else {
+					break
+				}
+			}
+		}
+		config.EditMutex.RUnlock()
+	}
+}
+
+// ACMEFollowerWaitForReady is the follower (aka, everybody but the publisher)
+// method for waiting for a challenge. It requests the challenge data, reports
+// that it's ready to serve, and waits for the signal to serve the data.
+func ACMEFollowerWaitForReady(ctx context.Context, conf *config.Config, domain string, solver acmekit.ClusterSolver) error {
+requestRetry:
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	default:
+	}
+
+	client := FromPeer(conf.GetPublisher())
+
+	resp, err := client.Exchange(&api.ACMEChallengeRequest{Domain: domain}, true)
+	if err != nil {
+		logrus.Errorf("Could not request ACME challenge from publisher: %v", err)
+		time.Sleep(time.Second)
+		goto requestRetry
+	}
+	chal := resp.(*api.ACMEChallengeResponse).Challenge
+	conf.ACMESetChallenge(domain, chal)
+	if err := solver.Present(ctx, chal); err != nil {
+		return err
+	}
+
+	if _, err := client.Exchange(&api.ACMEReadyRequest{Peer: conf.GetMe().Name(), Domain: domain}, true); err != nil {
+		logrus.Errorf("Unable to report to publisher that we are ready: %v", err)
+		time.Sleep(time.Second)
+		goto requestRetry
+	}
+
+	for {
+		resp, err = client.Exchange(&api.ACMEServeRequest{Domain: domain}, true)
+		if err != nil {
+			logrus.Errorf("Unable to get ready state from publisher: %v", err)
+			time.Sleep(time.Second)
+			goto requestRetry // do not try this loop again, start over completely, in case the publisher changed
+		}
+
+		if resp.(*api.ACMEServeResponse).Ok {
+			return nil
+		}
+
+		time.Sleep(time.Second)
+	}
+}
+
+// ACMEFollowerCaptureCert gets the cert from the publisher, and then indicates
+// that the challenge endpoint can be torn down.
+func ACMEFollowerCaptureCert(ctx context.Context, conf *config.Config, domain string, solver acmekit.ClusterSolver) error {
+	chal, ok := conf.ACMEGetChallenge(domain)
+	if !ok {
+		return errors.New("Could not find challenge during capture of certificate")
+	}
+
+	defer solver.CleanUp(ctx, chal)
+
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+
+		client := FromPeer(conf.GetPublisher())
+
+		resp, err := client.Exchange(&api.ACMEChallengeCompleteRequest{Domain: domain}, true)
+		if err != nil {
+			logrus.Errorf("Unable to get completed state from publisher: %v", err)
+			time.Sleep(time.Second)
+			continue
+		}
+
+		complete := resp.(*api.ACMEChallengeCompleteResponse)
+
+		if !complete.Ok {
+			logrus.Warn("Publisher has not completed ACME challenge, retrying in a second")
+			time.Sleep(time.Second)
+			continue
+		}
+
+		conf.ACME.CacheCertificate(domain, &acmekit.Certificate{
+			Chain:      complete.Chain,
+			PrivateKey: complete.PrivateKey,
+		})
+
+		conf.ACMEDeleteChallenge(domain)
+		return nil
+	}
+}
+
+// ACMEWaitForReady encapsulates the waiting loop solvers will use to determine
+// when the entire cluster is ready to serve a challenge.
+//
+// It is not pretty.
+func ACMEWaitForReady(ctx context.Context, conf *config.Config, domain string, solver acmekit.ClusterSolver) error {
+retry:
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	default:
+	}
+
+	if conf.GetPublisher() == nil {
+		time.Sleep(time.Second)
+		goto retry
+	}
+
+	if conf.GetPublisher().Name() == conf.GetMe().Name() {
+		return ACMEPublisherWaitForReady(ctx, conf, domain)
+	} else {
+		return ACMEFollowerWaitForReady(ctx, conf, domain, solver)
+	}
 }

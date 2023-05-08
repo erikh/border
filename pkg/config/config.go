@@ -8,9 +8,11 @@ import (
 	"sync"
 	"time"
 
+	"github.com/erikh/border/pkg/acmekit"
 	"github.com/erikh/border/pkg/dnsconfig"
 	"github.com/erikh/go-hashchain"
 	"github.com/go-jose/go-jose/v3"
+	"github.com/mholt/acmez/acme"
 )
 
 var (
@@ -27,13 +29,18 @@ var (
 var HashFunc = sha512.New
 
 type Config struct {
-	FilenamePrefix string           `json:"-"` // prefix of filename to save to and read from
-	Publisher      *Peer            `json:"-"`
-	ShutdownWait   time.Duration    `json:"shutdown_wait"`
-	AuthKey        *jose.JSONWebKey `json:"auth_key"`
-	Listen         ListenConfig     `json:"listen"`
-	Peers          []*Peer          `json:"peers"`
-	Zones          map[string]*Zone `json:"zones"`
+	FilenamePrefix string                    `json:"-"` // prefix of filename to save to and read from
+	Publisher      *Peer                     `json:"-"` // peer that's the publisher
+	Me             *Peer                     `json:"-"` // this peer
+	ACMEChallenges map[string]acme.Challenge `json:"-"` // domain -> peers map of challenge payloads
+	ACMEReady      map[string][]*Peer        `json:"-"` // domain -> peers map of ready peers for challenge
+
+	ACME         *acmekit.ACMEParams `json:"acme"`
+	ShutdownWait time.Duration       `json:"shutdown_wait"`
+	AuthKey      *jose.JSONWebKey    `json:"auth_key"`
+	Listen       ListenConfig        `json:"listen"`
+	Peers        []*Peer             `json:"peers"`
+	Zones        map[string]*Zone    `json:"zones"`
 
 	chain  *hashchain.Chain
 	reload chan struct{}
@@ -155,6 +162,12 @@ func (c *Config) AddPeer(peer *Peer) {
 	c.Peers = append(c.Peers, peer)
 }
 
+func (c *Config) GetMe() *Peer {
+	EditMutex.RLock()
+	defer EditMutex.RUnlock()
+	return c.Me
+}
+
 func (c *Config) GetPublisher() *Peer {
 	EditMutex.RLock()
 	defer EditMutex.RUnlock()
@@ -165,4 +178,33 @@ func (c *Config) SetPublisher(publisher *Peer) {
 	EditMutex.Lock()
 	defer EditMutex.Unlock()
 	c.Publisher = publisher
+}
+
+func (c *Config) IAmPublisher() bool {
+	EditMutex.RLock()
+	defer EditMutex.RUnlock()
+
+	return c.Publisher != nil && c.Me.Name() == c.Publisher.Name()
+}
+
+func (c *Config) AllPeersPresent(peers []*Peer) bool {
+	EditMutex.RLock()
+	defer EditMutex.RUnlock()
+
+	for _, peer := range c.Peers {
+		var found bool
+
+		for _, p := range peers {
+			if peer.Name() == p.Name() {
+				found = true
+				break
+			}
+		}
+
+		if !found {
+			return false
+		}
+	}
+
+	return true
 }

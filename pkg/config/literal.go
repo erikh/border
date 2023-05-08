@@ -239,9 +239,9 @@ func typeAssert(typ reflect.Type, literal any, value reflect.Value) error {
 			case reflect.Float64:
 				value.Set(reflect.ValueOf(literal.(float64)))
 			case reflect.Slice:
-				switch literal.(type) {
+				switch lit := literal.(type) {
 				case string:
-					value.Set(reflect.ValueOf([]byte(literal.(string))))
+					value.Set(reflect.ValueOf([]byte(lit)))
 				default:
 					value.Set(reflect.ValueOf(literal))
 				}

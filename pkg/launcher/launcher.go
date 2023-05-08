@@ -10,6 +10,8 @@ import (
 	"os"
 	"time"
 
+	"github.com/erikh/border/pkg/acmekit"
+	"github.com/erikh/border/pkg/acmekit/solvers"
 	"github.com/erikh/border/pkg/api"
 	"github.com/erikh/border/pkg/config"
 	"github.com/erikh/border/pkg/controlclient"
@@ -20,6 +22,7 @@ import (
 	"github.com/erikh/border/pkg/healthcheck"
 	"github.com/erikh/border/pkg/lb"
 	"github.com/erikh/go-hashchain"
+	"github.com/mholt/acmez/acme"
 	"github.com/sirupsen/logrus"
 )
 
@@ -44,6 +47,10 @@ func (s *Server) Launch(peerName string, c *config.Config) error {
 		return fmt.Errorf("Could not find the name of this peer: %q: %w", peerName, err)
 	}
 
+	c.Me = peer
+
+	// NOTE the control server must start before the balancers. The CS is used in
+	// ACME challenges, which happen at LB boot.
 	cs, err := controlserver.Start(c, peer, c.Listen.Control, controlserver.NonceExpiration, 100*time.Millisecond)
 	if err != nil {
 		return fmt.Errorf("Error while starting control server: %w", err)
@@ -210,7 +217,44 @@ func (s *Server) createBalancers(peerName string, c *config.Config) ([]*lb.Balan
 
 				var tls *lb.TLSBalancerConfig
 
-				if lbRecord.TLS != nil {
+				if lbRecord.ACME != nil {
+					var solver acmekit.ClusterSolver
+
+					// FIXME if we use the solvers for all the requests, then many calls
+					// that will be discarded will be made to LE, which will undoubtedly
+					// hit a rate limit. Instead, we should determine if we're the
+					// publisher, make one call, and have the rest wait.
+					//
+					// This will probably mean re-enacting the acmez.Solver interface.
+					// Not happy about that. Also not sure how it's going to work with
+					// our current call stack.
+					switch lbRecord.ACME.ChallengeType {
+					case acme.ChallengeTypeDNS01:
+						solver = solvers.DNSSolver(c, rec.Name)
+					case acme.ChallengeTypeTLSALPN01:
+						solver = solvers.ALPNSolver(c, rec.Name)
+					case acme.ChallengeTypeHTTP01:
+						solver = solvers.HTTPSolver(c, rec.Name)
+					default:
+						return nil, fmt.Errorf("%q is not a valid ACME challenge type", lbRecord.ACME.ChallengeType)
+					}
+
+					if c.IAmPublisher() {
+						if err := c.ACME.GetNewCertificate(context.Background(), rec.Name, lbRecord.ACME.ChallengeType, solver); err != nil {
+							return nil, fmt.Errorf("Error obtaining ACME certificate: %w", err)
+						}
+					}
+
+					cert, err := c.ACME.FetchCachedCertificate(context.Background(), rec.Name, solver)
+					if err != nil {
+						return nil, fmt.Errorf("Error obtaining ACME certificate: %w", err)
+					}
+
+					tls = &lb.TLSBalancerConfig{
+						Certificate: cert.Chain,
+						Key:         cert.PrivateKey,
+					}
+				} else if lbRecord.TLS != nil {
 					tls = &lb.TLSBalancerConfig{
 						CACertificate: lbRecord.TLS.CACertificate,
 						Certificate:   lbRecord.TLS.Certificate,
