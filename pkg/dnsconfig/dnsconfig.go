@@ -11,8 +11,9 @@ import (
 )
 
 const (
-	TypeA  = "A"
-	TypeLB = "LB"
+	TypeA   = "A"
+	TypeLB  = "LB"
+	TypeTXT = "TXT"
 )
 
 // An attempt to normalize record management so it can be addressed in a
@@ -73,6 +74,23 @@ func (a *A) Convert(name string) []dns.RR {
 	}
 
 	return ret
+}
+
+type TXT struct {
+	Value []string `record:"value"`
+	TTL   uint32   `record:"ttl,optional"`
+}
+
+func (txt *TXT) Convert(name string) []dns.RR {
+	return []dns.RR{&dns.TXT{
+		Hdr: dns.RR_Header{
+			Name:   name,
+			Rrtype: dns.TypeA,
+			Class:  dns.ClassINET,
+			Ttl:    txt.TTL,
+		},
+		Txt: txt.Value,
+	}}
 }
 
 type NS struct {
