@@ -3,6 +3,7 @@ package solvers
 import (
 	"context"
 
+	"github.com/erikh/border/pkg/acmekit"
 	"github.com/erikh/border/pkg/config"
 	"github.com/erikh/border/pkg/controlclient"
 	"github.com/erikh/border/pkg/dnsconfig"
@@ -12,6 +13,14 @@ import (
 type ACMEDNSSolver struct {
 	domain string
 	config *config.Config
+}
+
+func CachedSolver(ctx context.Context, c *config.Config, domain string, solver acmekit.ClusterSolver) error {
+	if err := controlclient.ACMEWaitForReady(ctx, c, domain, solver); err != nil {
+		return err
+	}
+
+	return controlclient.ACMEFollowerCaptureCert(ctx, c, domain, solver)
 }
 
 func DNSSolver(c *config.Config, domain string) *ACMEDNSSolver {
@@ -53,7 +62,7 @@ func (dns *ACMEDNSSolver) Wait(ctx context.Context, chal acme.Challenge) error {
 }
 
 func (dns *ACMEDNSSolver) PresentCached(ctx context.Context) error {
-	return controlclient.ACMEWaitForReady(ctx, dns.config, dns.domain, dns)
+	return CachedSolver(ctx, dns.config, dns.domain, dns)
 }
 
 type ACMEALPNSolver struct {
@@ -79,7 +88,7 @@ func (alpn *ACMEALPNSolver) Wait(ctx context.Context, chal acme.Challenge) error
 }
 
 func (alpn *ACMEALPNSolver) PresentCached(ctx context.Context) error {
-	return controlclient.ACMEWaitForReady(ctx, alpn.config, alpn.domain, alpn)
+	return CachedSolver(ctx, alpn.config, alpn.domain, alpn)
 }
 
 type ACMEHTTPSolver struct {
@@ -105,5 +114,5 @@ func (hs *ACMEHTTPSolver) Wait(ctx context.Context, chal acme.Challenge) error {
 }
 
 func (hs *ACMEHTTPSolver) PresentCached(ctx context.Context) error {
-	return controlclient.ACMEWaitForReady(ctx, hs.config, hs.domain, hs)
+	return CachedSolver(ctx, hs.config, hs.domain, hs)
 }
